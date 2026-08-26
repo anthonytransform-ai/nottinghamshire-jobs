@@ -1,6 +1,6 @@
 # Nottinghamshire Job Opportunities
 
-Static public vacancy list for Transform Training. The site uses plain HTML, CSS and JavaScript and loads the replaceable `jobs.csv` file directly in the browser.
+Static public vacancy list for Transform Training. The site uses plain HTML, CSS and JavaScript and loads the replaceable `jobs.csv` file directly in the browser. It is also installable as a network-only web app on supported browsers; no service worker or offline cache is used.
 
 ## Weekly update
 
@@ -11,7 +11,7 @@ The normal update is to replace one file: `jobs.csv`.
 3. Commit and publish the file through the repository's normal GitHub Pages workflow.
 4. Open the permanent site link, hard-refresh it, and confirm the new `Last checked`, vacancy count, filters and a sample of application links.
 
-The checked-in file currently contains the required schema header only because no verified vacancy export was supplied with the MVP. Do not publish unverified or fictional vacancies. The page will show its safe no-current-vacancies state until a real weekly export replaces the header-only file.
+Only publish verified vacancies. The page has a safe no-current-vacancies state for weeks when the verified export contains no current vacancies.
 
 ## CSV contract
 
@@ -47,6 +47,10 @@ py -m http.server 8000
 
 Then open <http://localhost:8000/>. No package manager, build step or runtime dependency is required.
 
+## Install as a web app
+
+The live HTTPS site includes `manifest.webmanifest` and branded square icons for installation from Android/desktop Chrome and iPhone Safari. The installed app always uses the network and requests the latest `jobs.csv`; this project deliberately has no service worker or offline behaviour.
+
 ## GitHub Pages
 
 Set GitHub Pages to deploy from the repository's chosen branch and the repository root. The static files are already arranged for direct serving; normal weekly updates do not require a build or code change.
@@ -58,3 +62,5 @@ Set GitHub Pages to deploy from the repository's chosen branch and the repositor
 - `app.js` — CSV parsing, Europe/London expiry handling, filtering, sorting, states and rendering.
 - `jobs.csv` — weekly-updated vacancy source.
 - `logo_wbg.jpg` — supplied Transform Training logo used in the header.
+- `manifest.webmanifest` — install name, standalone display settings and app metadata.
+- `icons/` — Android, desktop and iPhone Home Screen icons derived from the supplied logo.
