@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Find current paid job opportunities in Nottinghamshire from local councils, NHS organisations, charities and voluntary/community organisations.">
+    <meta name="color-scheme" content="light">
+    <title>Nottinghamshire Job Opportunities | Transform Training</title>
+    <link rel="icon" href="logo_wbg.jpg" type="image/jpeg">
+    <link rel="stylesheet" href="styles.css">
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+
+    <header class="site-header">
+      <div class="site-header__inner page-width">
+        <a class="brand" href="./" aria-label="Transform Training home">
+          <img class="brand__logo" src="logo_wbg.jpg" alt="Transform Training">
+          <span class="brand__context">Nottinghamshire Job Opportunities</span>
+        </a>
+      </div>
+    </header>
+
+    <main id="main-content" class="page-width" aria-busy="true">
+      <section class="intro" aria-labelledby="page-title">
+        <h1 id="page-title">Find current jobs in Nottinghamshire</h1>
+        <p class="intro__lede">Search current paid vacancies from local councils, NHS organisations, charities and voluntary/community organisations.</p>
+        <div class="summary" aria-label="Job list summary">
+          <p><strong>Last checked:</strong> <time id="last-checked">—</time></p>
+          <span class="summary__divider" aria-hidden="true"></span>
+          <p><strong>Current vacancies:</strong> <span id="current-vacancies">—</span></p>
+        </div>
+      </section>
+
+      <aside class="guidance" role="note">
+        <svg class="guidance__icon" aria-hidden="true" viewBox="0 0 32 32" focusable="false">
+          <circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="2.5"></circle>
+          <path d="M16 14v8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"></path>
+          <circle cx="16" cy="9.5" r="1.5" fill="currentColor"></circle>
+        </svg>
+        <p>This job list is updated regularly by Transform Training. Vacancies can close early or be withdrawn, so always check the employer's official advert before applying.</p>
+      </aside>
+
+      <fieldset id="job-controls" class="job-controls" disabled>
+        <legend class="visually-hidden">Search and filter jobs</legend>
+
+        <label class="search-field" for="keyword-search">
+          <span class="visually-hidden">Search job title or keyword</span>
+          <svg class="search-field__icon" aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+            <circle cx="10.8" cy="10.8" r="6.7" fill="none" stroke="currentColor" stroke-width="2"></circle>
+            <path d="m16 16 5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+          </svg>
+          <input id="keyword-search" type="search" autocomplete="off" placeholder="Search job title or keyword...">
+        </label>
+
+        <div class="filter-panel">
+          <div class="filter-grid">
+            <label class="select-field" for="job-area-filter">
+              <span>Job area</span>
+              <select id="job-area-filter">
+                <option value="">All job areas</option>
+              </select>
+            </label>
+
+            <label class="select-field" for="organisation-filter">
+              <span>Organisation</span>
+              <select id="organisation-filter">
+                <option value="">All organisations</option>
+              </select>
+            </label>
+
+            <label class="select-field" for="location-filter">
+              <span>Location</span>
+              <select id="location-filter">
+                <option value="">All locations</option>
+              </select>
+            </label>
+
+            <label class="select-field" for="sort-filter">
+              <span>Sort</span>
+              <select id="sort-filter">
+                <option value="closing-soonest">Closing soonest</option>
+                <option value="organisation-az">Organisation A–Z</option>
+                <option value="title-az">Job title A–Z</option>
+                <option value="closing-latest">Closing latest</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div class="results-toolbar">
+          <h2 id="results-heading" class="results-heading" aria-live="polite">Loading current vacancies…</h2>
+          <button id="reset-filters" class="reset-button" type="button" hidden>Reset filters</button>
+        </div>
+      </fieldset>
+
+      <section class="results" aria-labelledby="results-heading">
+        <div id="state-message" class="state-message" hidden></div>
+        <div id="job-list" class="job-list" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="page-width">
+        <p class="site-footer__title">Transform Training — Nottinghamshire Job Opportunities</p>
+        <p>Job information is provided to help job seekers discover opportunities. Always check the employer's official advert for current details before applying.</p>
+      </div>
+    </footer>
+  </body>
+</html>
