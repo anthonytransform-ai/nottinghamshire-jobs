@@ -1,6 +1,6 @@
 # Nottinghamshire Job Opportunities
 
-Static public vacancy list for Transform Training. The site uses plain HTML, CSS and JavaScript and loads the replaceable `jobs.csv` file directly in the browser. It is also installable as a network-only web app on supported browsers; no service worker or offline cache is used.
+Static public vacancy list for Transform Training. The site uses plain HTML, CSS and JavaScript and loads the replaceable `jobs.csv` file directly in the browser. It covers vacancies from local councils, NHS organisations, universities, schools, academy trusts, charities and voluntary/community organisations. It is also installable as a network-only web app on supported browsers; no service worker or offline cache is used.
 
 ## Weekly update
 
@@ -36,6 +36,13 @@ source_url
 ```
 
 The browser parser supports quoted values and commas inside fields. `closing_date` and `date_checked` use `YYYY-MM-DD`; `closing_time` uses `HH:MM` when present. Closing deadlines are evaluated in `Europe/London`, including same-day closing times, without changing the stored CSV value.
+
+The `employer_type` field accepts these values:
+
+- Council
+- NHS
+- VCSE
+- Education
 
 ## Run locally
 

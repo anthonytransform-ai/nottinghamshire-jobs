@@ -117,6 +117,7 @@ Use only:
 - Council
 - NHS
 - VCSE
+- Education
 
 ### job_area
 
@@ -232,7 +233,7 @@ Do not create a complex navigation menu for V1.
 
 Supporting text:
 
-> Search current paid vacancies from local councils, NHS organisations, charities and voluntary/community organisations.
+> Search current paid vacancies from local councils, NHS organisations, universities, schools, academy trusts, charities and voluntary/community organisations.
 
 Show:
 
@@ -761,7 +762,7 @@ These may be considered only after real user feedback.
 
 Before deployment, test using a realistic `jobs.csv` containing enough rows to cover:
 
-- Council, NHS and VCSE employers;
+- Council, NHS, VCSE and Education employers;
 - several job areas;
 - several Nottinghamshire locations;
 - permanent, fixed-term and sessional/freelance work;

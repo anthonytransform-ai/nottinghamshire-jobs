@@ -1,7 +1,7 @@
 {
   "name": "Nottinghamshire Job Opportunities",
   "short_name": "Nottinghamshire Jobs",
-  "description": "Find current paid job opportunities in Nottinghamshire from local councils, NHS organisations, charities and voluntary/community organisations.",
+  "description": "Search current paid vacancies from local councils, NHS organisations, universities, schools, academy trusts, charities and voluntary/community organisations.",
   "id": "./",
   "start_url": "./",
   "scope": "./",
