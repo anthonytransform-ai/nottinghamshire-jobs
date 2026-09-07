@@ -1,0 +1,10 @@
+{
+  "date_checked": "2026-09-07",
+  "row_count": 233,
+  "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "base_main_sha": "0123456789abcdef0123456789abcdef01234567",
+  "chunks": [
+    ".job-update/chunk-001.b64",
+    ".job-update/chunk-002.b64"
+  ]
+}

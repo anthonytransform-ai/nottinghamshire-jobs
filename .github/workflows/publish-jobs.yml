@@ -1,0 +1,233 @@
+name: Publish jobs CSV
+
+on:
+  push:
+    branches:
+      - job-update-staging
+    paths:
+      - job-update-manifest.json
+
+concurrency:
+  group: publish-jobs-csv
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  validate-publish-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out staging payload
+        uses: actions/checkout@v4
+        with:
+          ref: job-update-staging
+          path: staging
+          persist-credentials: false
+
+      - name: Check out current main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: mainrepo
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run validator tests
+        working-directory: mainrepo
+        run: python -m unittest discover -s tests -v
+
+      - name: Validate staged CSV
+        id: validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          current_main_sha="$(git -C mainrepo rev-parse HEAD)"
+          python mainrepo/scripts/validate_job_update.py \
+            --manifest staging/job-update-manifest.json \
+            --root staging \
+            --output "$RUNNER_TEMP/jobs.csv" \
+            --actual-main-sha "$current_main_sha" \
+            --require-today
+
+          candidate_sha="$(python - "$RUNNER_TEMP/jobs.csv" <<'PY'
+          import hashlib, pathlib, sys
+          print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())
+          PY
+          )"
+          update_date="$(python - <<'PY'
+          import json
+          print(json.load(open('staging/job-update-manifest.json', encoding='utf-8'))['date_checked'])
+          PY
+          )"
+          row_count="$(python - <<'PY'
+          import json
+          print(json.load(open('staging/job-update-manifest.json', encoding='utf-8'))['row_count'])
+          PY
+          )"
+          echo "sha256=$candidate_sha" >> "$GITHUB_OUTPUT"
+          echo "date_checked=$update_date" >> "$GITHUB_OUTPUT"
+          echo "row_count=$row_count" >> "$GITHUB_OUTPUT"
+
+      - name: Publish only jobs.csv to main
+        id: publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "$RUNNER_TEMP/jobs.csv" mainrepo/jobs.csv
+          cd mainrepo
+
+          changed="$(git status --porcelain --untracked-files=no)"
+          if [ -z "$changed" ]; then
+            published_sha="$(git rev-parse HEAD)"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "published_sha=$published_sha" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          changed_paths="$(git status --porcelain --untracked-files=no | sed 's/^...//')"
+          if [ "$changed_paths" != "jobs.csv" ]; then
+            echo "Unexpected changed paths before publication:" >&2
+            printf '%s\n' "$changed_paths" >&2
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- jobs.csv
+
+          staged_paths="$(git diff --cached --name-only)"
+          if [ "$staged_paths" != "jobs.csv" ]; then
+            echo "Publication must stage only jobs.csv" >&2
+            exit 1
+          fi
+
+          commit_date="$(python - <<'PY'
+          import datetime, json
+          value = json.load(open('../staging/job-update-manifest.json', encoding='utf-8'))['date_checked']
+          d = datetime.date.fromisoformat(value)
+          print(f"{d.day} {d.strftime('%B %Y')}")
+          PY
+          )"
+          git commit -m "Update Nottinghamshire vacancies for $commit_date"
+          git push origin HEAD:main
+          published_sha="$(git rev-parse HEAD)"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "published_sha=$published_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Verify main contains the exact audited bytes
+        env:
+          EXPECTED_SHA256: ${{ steps.validate.outputs.sha256 }}
+          PUBLISHED_SHA: ${{ steps.publish.outputs.published_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C mainrepo fetch origin main
+          remote_main="$(git -C mainrepo rev-parse origin/main)"
+          if [ "$remote_main" != "$PUBLISHED_SHA" ]; then
+            echo "main moved unexpectedly after publication" >&2
+            exit 1
+          fi
+
+          curl -fsSL \
+            -H 'Cache-Control: no-cache' \
+            "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${PUBLISHED_SHA}/jobs.csv" \
+            -o "$RUNNER_TEMP/raw-jobs.csv"
+          actual="$(python - "$RUNNER_TEMP/raw-jobs.csv" <<'PY'
+          import hashlib, pathlib, sys
+          print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())
+          PY
+          )"
+          if [ "$actual" != "$EXPECTED_SHA256" ]; then
+            echo "Published main/jobs.csv checksum mismatch" >&2
+            exit 1
+          fi
+
+      - name: Wait for successful GitHub Pages deployment
+        if: steps.publish.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PUBLISHED_SHA: ${{ steps.publish.outputs.published_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 36); do
+            response="$(curl -fsSL \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs?branch=main&per_page=30")"
+            result="$(printf '%s' "$response" | python -c '
+          import json, os, sys
+          data=json.load(sys.stdin)
+          target=os.environ["PUBLISHED_SHA"]
+          matches=[r for r in data.get("workflow_runs", []) if r.get("name")=="pages build and deployment" and r.get("head_sha")==target]
+          if not matches:
+              print("missing")
+          else:
+              run=matches[0]
+              print(f"{run.get(\"status\")}:{run.get(\"conclusion\") or \"\"}")
+          ')"
+            case "$result" in
+              completed:success) break ;;
+              completed:*) echo "Pages deployment failed: $result" >&2; exit 1 ;;
+            esac
+            if [ "$attempt" -eq 36 ]; then
+              echo "Timed out waiting for Pages deployment for $PUBLISHED_SHA" >&2
+              exit 1
+            fi
+            sleep 5
+          done
+
+      - name: Verify public jobs.csv checksum
+        env:
+          EXPECTED_SHA256: ${{ steps.validate.outputs.sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          public_url="https://anthonytransform-ai.github.io/nottinghamshire-jobs/jobs.csv"
+          for attempt in $(seq 1 36); do
+            if curl -fsSL \
+              -H 'Cache-Control: no-cache' \
+              "${public_url}?run=${GITHUB_RUN_ID}&attempt=${attempt}" \
+              -o "$RUNNER_TEMP/public-jobs.csv"; then
+              actual="$(python - "$RUNNER_TEMP/public-jobs.csv" <<'PY'
+          import hashlib, pathlib, sys
+          print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())
+          PY
+          )"
+              if [ "$actual" = "$EXPECTED_SHA256" ]; then
+                break
+              fi
+            fi
+            if [ "$attempt" -eq 36 ]; then
+              echo "Public jobs.csv did not reach the expected checksum" >&2
+              exit 1
+            fi
+            sleep 5
+          done
+
+      - name: Record publication summary
+        env:
+          PUBLISHED_SHA: ${{ steps.publish.outputs.published_sha }}
+          CHECKSUM: ${{ steps.validate.outputs.sha256 }}
+          ROW_COUNT: ${{ steps.validate.outputs.row_count }}
+          DATE_CHECKED: ${{ steps.validate.outputs.date_checked }}
+        shell: bash
+        run: |
+          {
+            echo '## Nottinghamshire jobs publication'
+            echo
+            echo "- Main commit: \`$PUBLISHED_SHA\`"
+            echo "- Date checked: \`$DATE_CHECKED\`"
+            echo "- Rows: \`$ROW_COUNT\`"
+            echo "- SHA-256: \`$CHECKSUM\`"
+            echo '- Public data checksum verified.'
+          } >> "$GITHUB_STEP_SUMMARY"
