@@ -10,7 +10,10 @@ import json
 import re
 from pathlib import Path
 
-from scripts.validate_job_update import ValidationError, parse_csv_bytes
+if __package__:
+    from .validate_job_update import ValidationError, parse_csv_bytes
+else:
+    from validate_job_update import ValidationError, parse_csv_bytes
 
 _SHA1_RE = re.compile(r"^[0-9a-f]{40}$")
 
