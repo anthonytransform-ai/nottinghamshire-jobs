@@ -1,0 +1,62 @@
+name: Rebuild jobs CSV
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - job-update-manifest.txt
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Assemble and validate jobs.csv
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .job-update/part-*.csvpart > jobs.csv
+          python - <<'PY'
+          import csv
+          from pathlib import Path
+
+          expected = [
+              'organization','employer_type','job_title','job_area','location','location_area',
+              'closing_date','closing_time','contract_type','work_pattern','salary','apply_url',
+              'job_reference','date_checked','source_url'
+          ]
+          p = Path('jobs.csv')
+          with p.open('r', encoding='utf-8', newline='') as f:
+              rows = list(csv.DictReader(f))
+          if not rows:
+              raise SystemExit('jobs.csv has no data rows')
+          if list(rows[0].keys()) != expected:
+              raise SystemExit(f'Unexpected schema: {list(rows[0].keys())}')
+          if len(rows) != 233:
+              raise SystemExit(f'Expected 233 rows, got {len(rows)}')
+          if any(r['date_checked'] != '2026-09-07' for r in rows):
+              raise SystemExit('Unexpected date_checked value')
+          if any(not ('2026-09-07' <= r['closing_date'] <= '2026-11-02') for r in rows):
+              raise SystemExit('Closing date outside approved 56-day window')
+          print('Validated 233 rows')
+          PY
+
+      - name: Commit final CSV and clean temporary files
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .job-update
+          rm -f job-update-manifest.txt
+          rm -f .github/workflows/rebuild-jobs.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A jobs.csv
+          git commit -m "Update Nottinghamshire vacancies for 7 September 2026"
+          git push origin HEAD:main
