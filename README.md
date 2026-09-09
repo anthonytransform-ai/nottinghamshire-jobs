@@ -126,6 +126,12 @@ GitHub Pages deploys the repository root from `main`. Normal weekly updates publ
 
 The publication workflow verifies both the successful Pages deployment for the new `main` commit and the SHA-256 of the public `jobs.csv` before the update is considered complete.
 
+## Web analytics
+
+The public page includes the Cloudflare Web Analytics beacon in `index.html`. It provides lightweight page-view and visitor metrics in the Cloudflare dashboard without adding a visible counter to the site.
+
+Analytics is independent of the vacancy-data publication pipeline. Normal weekly Job Updates should continue to replace only `jobs.csv`; the analytics beacon and token should not be changed as part of routine vacancy updates.
+
 ## Included files
 
 - `index.html` — accessible page structure and code-native controls.
