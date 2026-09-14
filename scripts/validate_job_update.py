@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Assemble and validate a staged Nottinghamshire jobs CSV update.
+"""Validate a complete Nottinghamshire jobs CSV candidate.
 
-Standard-library only. The manifest describes Base64 chunks containing the exact
-CSV bytes that should be published. Validation is deliberately fail-closed.
+Standard-library only. The validator reads the exact candidate `jobs.csv` bytes,
+checks the public data contract, and reports the update date, row count and
+SHA-256. It does not publish, reconstruct, or transform the candidate file.
 """
 
 from __future__ import annotations
 
 import argparse
-import base64
 import csv
 import hashlib
 import io
@@ -88,10 +88,7 @@ WORK_PATTERNS = {
     "Not stated",
 }
 
-_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
-_SHA1_RE = re.compile(r"^[0-9a-f]{40}$")
 _TIME_RE = re.compile(r"^(\d{2}):(\d{2})$")
-_CHUNK_RE = re.compile(r"^\.job-update/chunk-\d{3,}\.b64$")
 
 
 class ValidationError(Exception):
@@ -105,7 +102,7 @@ def fail(message: str) -> None:
 def parse_iso_date(value: str, field: str) -> date:
     try:
         parsed = date.fromisoformat(value)
-    except ValueError as exc:
+    except ValueError:
         fail(f"{field} must be YYYY-MM-DD: {value!r}")
     if parsed.isoformat() != value:
         fail(f"{field} must use canonical YYYY-MM-DD format: {value!r}")
@@ -119,60 +116,6 @@ def valid_http_url(value: str) -> bool:
 
 def normalise(value: str) -> str:
     return " ".join(value.casefold().split())
-
-
-def load_manifest(path: Path) -> dict:
-    try:
-        manifest = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-        fail(f"cannot read manifest: {exc}")
-
-    required = {"date_checked", "row_count", "sha256", "base_main_sha", "chunks"}
-    missing = required - manifest.keys()
-    if missing:
-        fail(f"manifest missing required keys: {', '.join(sorted(missing))}")
-
-    if not isinstance(manifest["date_checked"], str):
-        fail("manifest date_checked must be a string")
-    parse_iso_date(manifest["date_checked"], "manifest date_checked")
-
-    if not isinstance(manifest["row_count"], int) or isinstance(manifest["row_count"], bool) or manifest["row_count"] < 0:
-        fail("manifest row_count must be a non-negative integer")
-
-    if not isinstance(manifest["sha256"], str) or not _SHA256_RE.fullmatch(manifest["sha256"]):
-        fail("manifest sha256 must be a lowercase 64-character SHA-256")
-
-    if not isinstance(manifest["base_main_sha"], str) or not _SHA1_RE.fullmatch(manifest["base_main_sha"]):
-        fail("manifest base_main_sha must be a lowercase 40-character commit SHA")
-
-    chunks = manifest["chunks"]
-    if not isinstance(chunks, list) or not chunks or not all(isinstance(item, str) for item in chunks):
-        fail("manifest chunks must be a non-empty list of paths")
-    if len(chunks) != len(set(chunks)):
-        fail("manifest chunks contains duplicate paths")
-    for chunk in chunks:
-        if not _CHUNK_RE.fullmatch(chunk):
-            fail(f"invalid chunk path: {chunk!r}")
-
-    return manifest
-
-
-def assemble_chunks(root: Path, chunks: list[str]) -> bytes:
-    encoded_parts: list[str] = []
-    for relative in chunks:
-        path = root / relative
-        try:
-            text = path.read_text(encoding="ascii")
-        except (OSError, UnicodeDecodeError) as exc:
-            fail(f"cannot read chunk {relative!r}: {exc}")
-        # Whitespace is formatting only; chunk content itself must remain Base64.
-        encoded_parts.append("".join(text.split()))
-
-    encoded = "".join(encoded_parts)
-    try:
-        return base64.b64decode(encoded, validate=True)
-    except (ValueError, base64.binascii.Error) as exc:
-        fail(f"staged chunks are not valid Base64: {exc}")
 
 
 def parse_csv_bytes(csv_bytes: bytes) -> list[dict[str, str]]:
@@ -197,6 +140,34 @@ def parse_csv_bytes(csv_bytes: bytes) -> list[dict[str, str]]:
     return records
 
 
+def resolve_update_date(records: list[dict[str, str]], declared_date: str | None, require_today: bool) -> date:
+    today = datetime.now(ZoneInfo("Europe/London")).date()
+
+    if records:
+        values = {record["date_checked"] for record in records}
+        if "" in values:
+            fail("date_checked must not be blank")
+        if len(values) != 1:
+            fail("all rows must use the same date_checked")
+        value = next(iter(values))
+        update_date = parse_iso_date(value, "date_checked")
+        if declared_date is not None and value != declared_date:
+            fail(f"date_checked {value} does not match declared date {declared_date}")
+    else:
+        if declared_date is not None:
+            update_date = parse_iso_date(declared_date, "declared date")
+        elif require_today:
+            update_date = today
+        else:
+            fail("a zero-row CSV requires --date-checked unless --require-today is used")
+
+    if require_today and update_date != today:
+        fail(
+            f"date_checked {update_date.isoformat()} is not today's Europe/London date {today.isoformat()}"
+        )
+    return update_date
+
+
 def validate_record(record: dict[str, str], index: int, update_date: date, require_today: bool) -> None:
     line = index + 2
     required_fields = ["organization", "job_title", "location_area", "closing_date", "apply_url", "source_url"]
@@ -216,7 +187,7 @@ def validate_record(record: dict[str, str], index: int, update_date: date, requi
         fail(f"row {line}: invalid work_pattern {record['work_pattern']!r}")
 
     if record["date_checked"] != update_date.isoformat():
-        fail(f"row {line}: date_checked must equal manifest date {update_date.isoformat()}")
+        fail(f"row {line}: date_checked must equal update date {update_date.isoformat()}")
 
     closing_date = parse_iso_date(record["closing_date"], f"row {line} closing_date")
     if closing_date < update_date or closing_date > update_date + timedelta(days=56):
@@ -260,12 +231,10 @@ def validate_duplicates(records: list[dict[str, str]]) -> None:
         )
         fallback_groups.setdefault(key, []).append((line, record["apply_url"].strip()))
 
-    for key, group in fallback_groups.items():
+    for group in fallback_groups.values():
         if len(group) < 2:
             continue
         urls = [url for _, url in group]
-        # Identical title/location/deadline rows are allowed only when distinct
-        # official advert URLs prove they are separate adverts.
         if any(not url for url in urls) or len(set(urls)) != len(urls):
             lines = ", ".join(str(line) for line, _ in group)
             fail(f"rows {lines}: unresolved duplicate employer/title/location/closing_date")
@@ -284,66 +253,49 @@ def validate_sort(records: list[dict[str, str]]) -> None:
         fail("CSV is not sorted by organization A-Z, closing_date earliest first, then job_title A-Z")
 
 
-def validate_candidate(csv_bytes: bytes, manifest: dict, require_today: bool = False) -> list[dict[str, str]]:
-    digest = hashlib.sha256(csv_bytes).hexdigest()
-    if digest != manifest["sha256"]:
-        fail(f"SHA-256 mismatch: manifest={manifest['sha256']} actual={digest}")
-
-    update_date = parse_iso_date(manifest["date_checked"], "manifest date_checked")
-    if require_today:
-        today = datetime.now(ZoneInfo("Europe/London")).date()
-        if update_date != today:
-            fail(f"manifest date_checked {update_date.isoformat()} is not today's Europe/London date {today.isoformat()}")
-
+def validate_csv_bytes(
+    csv_bytes: bytes,
+    *,
+    declared_date: str | None = None,
+    require_today: bool = False,
+) -> dict[str, object]:
     records = parse_csv_bytes(csv_bytes)
-    if len(records) != manifest["row_count"]:
-        fail(f"row_count mismatch: manifest={manifest['row_count']} actual={len(records)}")
+    update_date = resolve_update_date(records, declared_date, require_today)
 
     for index, record in enumerate(records):
         validate_record(record, index, update_date, require_today)
     validate_duplicates(records)
     validate_sort(records)
-    return records
+
+    return {
+        "ok": True,
+        "date_checked": update_date.isoformat(),
+        "row_count": len(records),
+        "sha256": hashlib.sha256(csv_bytes).hexdigest(),
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--manifest", type=Path, required=True)
-    parser.add_argument("--root", type=Path, default=Path("."), help="Root containing manifest chunk paths")
-    parser.add_argument("--output", type=Path, help="Write exact validated CSV bytes here")
-    parser.add_argument("--actual-main-sha", help="Fail unless this equals manifest base_main_sha")
-    parser.add_argument("--require-today", action="store_true", help="Require manifest date to equal current Europe/London date")
+    parser.add_argument("csv_path", type=Path, help="Complete jobs.csv candidate to validate")
+    parser.add_argument("--date-checked", help="Optional declared YYYY-MM-DD update date")
+    parser.add_argument(
+        "--require-today",
+        action="store_true",
+        help="Require the update date to equal today's Europe/London date and reject passed same-day stated deadlines",
+    )
     args = parser.parse_args(argv)
 
     try:
-        manifest = load_manifest(args.manifest)
-        if args.actual_main_sha is not None:
-            if not _SHA1_RE.fullmatch(args.actual_main_sha):
-                fail("--actual-main-sha must be a lowercase 40-character commit SHA")
-            if manifest["base_main_sha"] != args.actual_main_sha:
-                fail(
-                    "main changed after publication preparation: "
-                    f"manifest={manifest['base_main_sha']} current={args.actual_main_sha}"
-                )
-
-        csv_bytes = assemble_chunks(args.root, manifest["chunks"])
-        records = validate_candidate(csv_bytes, manifest, require_today=args.require_today)
-        if args.output:
-            args.output.parent.mkdir(parents=True, exist_ok=True)
-            args.output.write_bytes(csv_bytes)
-        print(
-            json.dumps(
-                {
-                    "ok": True,
-                    "date_checked": manifest["date_checked"],
-                    "row_count": len(records),
-                    "sha256": manifest["sha256"],
-                },
-                sort_keys=True,
-            )
+        csv_bytes = args.csv_path.read_bytes()
+        result = validate_csv_bytes(
+            csv_bytes,
+            declared_date=args.date_checked,
+            require_today=args.require_today,
         )
+        print(json.dumps(result, sort_keys=True))
         return 0
-    except ValidationError as exc:
+    except (OSError, ValidationError) as exc:
         print(f"VALIDATION FAILED: {exc}", file=sys.stderr)
         return 1
 
