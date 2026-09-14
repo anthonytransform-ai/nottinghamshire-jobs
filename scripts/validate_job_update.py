@@ -15,10 +15,11 @@ import io
 import json
 import re
 import sys
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, tzinfo
+from calendar import monthcalendar
 from pathlib import Path
 from urllib.parse import urlparse
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 EXPECTED_COLUMNS = [
     "organization",
@@ -91,6 +92,40 @@ WORK_PATTERNS = {
 _TIME_RE = re.compile(r"^(\d{2}):(\d{2})$")
 
 
+class _UnitedKingdomFallback(tzinfo):
+    """Use UK daylight-saving rules when Windows has no IANA tzdata bundle."""
+
+    @staticmethod
+    def _last_sunday(year: int, month: int) -> date:
+        weeks = monthcalendar(year, month)
+        for week in reversed(weeks):
+            if week[6]:
+                return date(year, month, week[6])
+        raise ValueError(f"month has no Sunday: {year}-{month}")
+
+    @classmethod
+    def _is_bst(cls, value: date) -> bool:
+        return cls._last_sunday(value.year, 3) < value < cls._last_sunday(value.year, 10)
+
+    def utcoffset(self, value: datetime | None) -> timedelta:
+        if value is None:
+            return timedelta(0)
+        return timedelta(hours=1 if self._is_bst(value.date()) else 0)
+
+    def dst(self, value: datetime | None) -> timedelta:
+        return self.utcoffset(value)
+
+    def tzname(self, value: datetime | None) -> str:
+        return "BST" if value is not None and self._is_bst(value.date()) else "GMT"
+
+
+def london_timezone() -> tzinfo:
+    try:
+        return ZoneInfo("Europe/London")
+    except ZoneInfoNotFoundError:
+        return _UnitedKingdomFallback()
+
+
 class ValidationError(Exception):
     """Raised when a candidate update fails deterministic validation."""
 
@@ -141,7 +176,7 @@ def parse_csv_bytes(csv_bytes: bytes) -> list[dict[str, str]]:
 
 
 def resolve_update_date(records: list[dict[str, str]], declared_date: str | None, require_today: bool) -> date:
-    today = datetime.now(ZoneInfo("Europe/London")).date()
+    today = datetime.now(london_timezone()).date()
 
     if records:
         values = {record["date_checked"] for record in records}
@@ -199,7 +234,7 @@ def validate_record(record: dict[str, str], index: int, update_date: date, requi
         if not match or int(match.group(1)) > 23 or int(match.group(2)) > 59:
             fail(f"row {line}: closing_time must be blank or HH:MM")
         if require_today and closing_date == update_date:
-            now = datetime.now(ZoneInfo("Europe/London"))
+            now = datetime.now(london_timezone())
             deadline_minutes = int(match.group(1)) * 60 + int(match.group(2))
             if now.date() == update_date and now.hour * 60 + now.minute >= deadline_minutes:
                 fail(f"row {line}: stated same-day closing time has already passed in Europe/London")

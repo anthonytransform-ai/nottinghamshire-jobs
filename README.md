@@ -78,6 +78,42 @@ The validator checks the exact schema/order, update-date consistency, row count,
 
 The validator reads the complete `jobs.csv` directly. It does not reconstruct data from chunks and it does not publish or transform the file.
 
+## Weekly Job Update engine
+
+The repository includes a reusable, fixture-tested Python engine under `job_update/`. It follows the current Job Search Playbook's retrieval order: official API/public data, direct official HTTP parsing, public recruitment-system routes, optional Playwright Chromium fallback, then explicit partial/blocked audit status. It does not use Firecrawl and it does not call an OpenAI API at runtime.
+
+Install the optional operator tooling when live browser fallback is needed:
+
+```powershell
+py -m pip install -r requirements-job-update.txt
+py -m playwright install chromium
+```
+
+Inspect the complete registry, including every mandatory source:
+
+```powershell
+py -m job_update sources
+```
+
+Run a live, non-publishing shadow update. By default the candidate and all audit artefacts stay under `.job-update-runs/YYYY-MM-DD/`; the repository's tracked `jobs.csv` is not replaced:
+
+```powershell
+py -m job_update run --date 2026-09-21
+```
+
+The run writes `source_audit.json`, `source_audit.md`, `raw_records.json`, `normalized_records.json`, `review_queue.json`, `exclusions.json`, `validation.json`, `summary.json`, `pr_body.md` and a candidate `jobs.csv` in the run directory. Every mandatory source gets an audit row, including verified zero-result sources. Retrieval failures remain `Partially verified` or `Blocked`; they are never converted to zero vacancies.
+
+Useful separated commands are:
+
+```powershell
+py -m job_update fetch --date 2026-09-21
+py -m job_update build --date 2026-09-21
+py -m job_update audit --date 2026-09-21
+py -m job_update doctor --live --date 2026-09-21
+```
+
+After reviewing the audit and resolving the structured review queue, an operator may explicitly choose an output path such as `--output .\jobs.csv`; the existing validator and one-file PR/manual squash-merge gate remain authoritative. The implementation engine does not push directly to `main`, open a publication PR automatically, or merge anything.
+
 ## Pull request rule
 
 A routine Job Update should use a branch such as:
