@@ -1,0 +1,78 @@
+name: Validate jobs CSV PR
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - jobs.csv
+
+permissions:
+  contents: read
+
+jobs:
+  validate-jobs-csv:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run validator tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Confirm normal Job Update changes only jobs.csv
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "${{ github.event.pull_request.base.ref }}" --depth=1
+          changed="$(git diff --name-only "origin/${{ github.event.pull_request.base.ref }}...HEAD")"
+          if [ "$changed" != "jobs.csv" ]; then
+            echo "A normal Job Update PR must change only jobs.csv." >&2
+            echo "Changed paths:" >&2
+            printf '%s\n' "$changed" >&2
+            exit 1
+          fi
+
+      - name: Validate exact jobs.csv candidate
+        id: validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/validate_job_update.py jobs.csv --require-today > "$RUNNER_TEMP/job-validation.json"
+          cat "$RUNNER_TEMP/job-validation.json"
+
+          python - "$RUNNER_TEMP/job-validation.json" "$GITHUB_OUTPUT" <<'PY'
+          import json, pathlib, sys
+          result = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+          with open(sys.argv[2], "a", encoding="utf-8") as out:
+              for key in ("date_checked", "row_count", "sha256"):
+                  out.write(f"{key}={result[key]}\n")
+          PY
+
+      - name: Record PR validation summary
+        env:
+          DATE_CHECKED: ${{ steps.validate.outputs.date_checked }}
+          ROW_COUNT: ${{ steps.validate.outputs.row_count }}
+          SHA256: ${{ steps.validate.outputs.sha256 }}
+        shell: bash
+        run: |
+          {
+            echo '## Nottinghamshire Job Update validation'
+            echo
+            echo '- Result: **PASS**'
+            echo "- Date checked: \`$DATE_CHECKED\`"
+            echo "- Rows: \`$ROW_COUNT\`"
+            echo "- SHA-256: \`$SHA256\`"
+            echo '- Changed file: `jobs.csv` only'
+            echo '- Publication: manual merge required; this workflow does not write to `main`.'
+          } >> "$GITHUB_STEP_SUMMARY"
