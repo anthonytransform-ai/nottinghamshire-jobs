@@ -1,0 +1,10 @@
+# Stable reviewed exceptions only. Never use an override to invent a deadline
+# or current status. Copy to overrides.toml for local, version-controlled rules.
+
+#[[location_area]]
+#source_record_id = "stable-public-id"
+#value = "Nottingham"
+
+#[[job_area]]
+#title = "Example exact title"
+#value = "Finance & Procurement"

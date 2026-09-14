@@ -1,0 +1,13 @@
+# Human-readable policy inputs. The classifier also contains ordered safety
+# rules so a broad word such as "health" cannot override a more specific role.
+
+[location]
+countywide = ["nottinghamshire", "countywide", "various locations across the county", "multiple nottinghamshire"]
+nottingham = ["nottingham", "city campus", "university park", "jubilee campus", "queen's medical centre", "qmc", "clifton campus", "king's meadow"]
+broxtowe = ["beeston", "stapleford", "kimberley", "eastwood", "chilwell", "nuthall", "giltbrook", "awsworth"]
+ashfield = ["sutton-in-ashfield", "sutton in ashfield", "kirkby-in-ashfield", "kirkby in ashfield", "hucknall"]
+bassetlaw = ["worksop", "retford", "harworth", "bawtry"]
+gedling = ["arnold", "carlton", "netherfield", "gedling"]
+mansfield = ["mansfield", "forest town", "warsop"]
+newark_sherwood = ["newark", "southwell", "ollerton", "bilsthorpe", "sherwood forest", "brackenhurst"]
+rushcliffe = ["west bridgford", "ruddington", "bingham", "cotgrave", "keyworth", "radcliffe-on-trent"]

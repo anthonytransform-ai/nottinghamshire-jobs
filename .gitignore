@@ -1,0 +1,6 @@
+# Local weekly retrieval/audit artefacts. A normal update PR still changes only jobs.csv.
+.job-update-runs/
+__pycache__/
+
+# Optional local reviewed overrides; keep the example registry tracked.
+config/overrides.toml

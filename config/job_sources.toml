@@ -1,0 +1,273 @@
+# Public, no-secret source registry derived from Job_Search_Playbook_2026-09-14.md.
+# URLs are discovery routes, not a promise that a recruitment platform will
+# retain the same path. Adapters re-discover linked routes where possible.
+
+[[sources]]
+source_id = "ncc-tal"
+display_name = "Nottinghamshire County Council — TAL NCC Vacancies"
+employer_type = "Council"
+mandatory = true
+adapter = "tal"
+official_entry_url = "https://www.nottinghamshire.gov.uk/jobs-and-working/working-for-us/opportunities-with-us"
+configuration = { board_kind = "ncc", brand = "brand-8" }
+
+[[sources]]
+source_id = "nottingham-city-oracle"
+display_name = "Nottingham City Council — Oracle HCM"
+employer_type = "Council"
+mandatory = true
+adapter = "oracle_hcm"
+official_entry_url = "https://eism.fa.em2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/ncc/jobs"
+configuration = { api_url = "https://eism.fa.em2.oraclecloud.com/hcmRestApi/resources/latest/recruitingCEJobRequisitions?onlyData=true&expand=requisitionList&finder=findReqs;siteNumber=CX_1,limit=100,offset=0", detail_url_template = "https://eism.fa.em2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/ncc/job/{id}", site_number = "CX_1", page_size = 100, organization = "Nottingham City Council" }
+
+[[sources]]
+source_id = "broxtowe-direct"
+display_name = "Broxtowe Borough Council — current vacancies"
+employer_type = "Council"
+mandatory = true
+adapter = "direct_council"
+official_entry_url = "https://www.broxtowe.gov.uk/for-you/jobs/current-vacancies/"
+configuration = { organization = "Broxtowe Borough Council", location_default = "Broxtowe", detail_links = true, job_link_pattern = "current-vacancies/[^/]+/?$" }
+
+[[sources]]
+source_id = "ashfield-itrent"
+display_name = "Ashfield District Council — iTrent"
+employer_type = "Council"
+mandatory = true
+adapter = "itrent"
+official_entry_url = "https://ce0930li.webitrent.com/ce0930li_webrecruitment/wrd/run/ETREC179GF.open?WVID=6777852QI7"
+configuration = { organization = "Ashfield District Council", wvid = "6777852QI7", location_default = "Ashfield" }
+
+[[sources]]
+source_id = "bassetlaw-itrent"
+display_name = "Bassetlaw District Council — iTrent"
+employer_type = "Council"
+mandatory = true
+adapter = "itrent"
+official_entry_url = "https://careers.bassetlaw.gov.uk/"
+configuration = { portal_url = "https://ce0017li.webitrent.com/ce0017li_webrecruitment/wrd/run/ETREC179GF.open?WVID=8070960wxx", organization = "Bassetlaw District Council", wvid = "8070960wxx", location_default = "Bassetlaw" }
+
+[[sources]]
+source_id = "gedling-direct"
+display_name = "Gedling Borough Council — current vacancies"
+employer_type = "Council"
+mandatory = true
+adapter = "gedling"
+official_entry_url = "https://apps.gedling.gov.uk/jobs/default.aspx"
+configuration = { organization = "Gedling Borough Council", location_default = "Gedling", detail_links = true }
+
+[[sources]]
+source_id = "mansfield-itrent"
+display_name = "Mansfield District Council — iTrent"
+employer_type = "Council"
+mandatory = true
+adapter = "itrent"
+official_entry_url = "https://ce0930li.webitrent.com/ce0930li_webrecruitment/wrd/run/ETREC179GF.open?WVID=4128782IuI"
+configuration = { organization = "Mansfield District Council", wvid = "4128782IuI", location_default = "Mansfield" }
+
+[[sources]]
+source_id = "newark-sherwood-itrent"
+display_name = "Newark & Sherwood District Council — iTrent"
+employer_type = "Council"
+mandatory = true
+adapter = "itrent"
+official_entry_url = "https://ce0799li.webitrent.com/ce0799li_webrecruitment/wrd/run/ETREC179GF.open?WVID=3373962BPM"
+configuration = { organization = "Newark & Sherwood District Council", wvid = "3373962BPM", location_default = "Newark & Sherwood" }
+
+[[sources]]
+source_id = "rushcliffe-direct"
+display_name = "Rushcliffe Borough Council — current jobs"
+employer_type = "Council"
+mandatory = true
+adapter = "direct_council"
+official_entry_url = "https://www.rushcliffe.gov.uk/about-us/working-for-rbc/jobs/"
+configuration = { organization = "Rushcliffe Borough Council", location_default = "Rushcliffe", detail_links = true }
+
+[[sources]]
+source_id = "nuh-nhs"
+display_name = "Nottingham University Hospitals NHS Trust"
+employer_type = "NHS"
+mandatory = true
+adapter = "nhs"
+official_entry_url = "https://www.nuh.nhs.uk/jobs"
+configuration = { employer = "Nottingham University Hospitals NHS Trust", search_url = "https://www.jobs.nhs.uk/candidate/search/results", query = "Nottingham University Hospitals NHS Trust", search_params = { employer = "Nottingham University Hospitals NHS Trust", location = "Nottinghamshire" }, location_default = "Nottingham" }
+
+[[sources]]
+source_id = "notts-healthcare-nhs"
+display_name = "Nottinghamshire Healthcare NHS Foundation Trust"
+employer_type = "NHS"
+mandatory = true
+adapter = "nhs"
+official_entry_url = "https://www.nottinghamshirehealthcare.nhs.uk/working-for-us/"
+configuration = { employer = "Nottinghamshire Healthcare NHS Foundation Trust", search_url = "https://www.jobs.nhs.uk/candidate/search/results", query = "Nottinghamshire Healthcare NHS Foundation Trust", search_params = { employer = "Nottinghamshire Healthcare NHS Foundation Trust", location = "Nottinghamshire" }, location_default = "Nottinghamshire" }
+
+[[sources]]
+source_id = "sherwood-forest-nhs"
+display_name = "Sherwood Forest Hospitals NHS Foundation Trust"
+employer_type = "NHS"
+mandatory = true
+adapter = "nhs"
+official_entry_url = "https://www.sfh-tr.nhs.uk/work-for-us/"
+configuration = { employer = "Sherwood Forest Hospitals NHS Foundation Trust", search_url = "https://www.jobs.nhs.uk/candidate/search/results", query = "Sherwood Forest Hospitals NHS Foundation Trust", search_params = { employer = "Sherwood Forest Hospitals NHS Foundation Trust", location = "Nottinghamshire" }, location_default = "Mansfield" }
+
+[[sources]]
+source_id = "university-nottingham"
+display_name = "University of Nottingham — vacancies"
+employer_type = "Education"
+mandatory = true
+adapter = "university_nottingham"
+official_entry_url = "https://jobs.nottingham.ac.uk/vacancies.aspx?cat=-1"
+configuration = { organization = "University of Nottingham", location_default = "Nottingham" }
+
+[[sources]]
+source_id = "ntu-jobtrain"
+display_name = "Nottingham Trent University — Jobtrain"
+employer_type = "Education"
+mandatory = true
+adapter = "ntu_jobtrain"
+official_entry_url = "https://vacancies.ntu.ac.uk/"
+configuration = { organization = "Nottingham Trent University", location_default = "Nottingham", use_browser = true, browser_wait_for = ".job-card", browser_load_more_selector = "#searchResultsLoadMoreBtn" }
+
+[[sources]]
+source_id = "teaching-vacancies"
+display_name = "GOV.UK Teaching Vacancies — Nottinghamshire and Nottingham searches"
+employer_type = "Education"
+mandatory = true
+adapter = "teaching_vacancies"
+official_entry_url = "https://teaching-vacancies.service.gov.uk/jobs?location=nottinghamshire"
+configuration = { queries = ["https://teaching-vacancies.service.gov.uk/jobs?location=nottinghamshire", "https://teaching-vacancies.service.gov.uk/jobs?location=nottingham"], page_param = "page" }
+
+[[sources]]
+source_id = "ncc-tal-education"
+display_name = "Nottinghamshire TAL — All Vacancies school/trust supplement"
+employer_type = "Education"
+mandatory = true
+adapter = "tal"
+official_entry_url = "https://www.nottinghamshire.gov.uk/jobs-and-working/working-for-us/opportunities-with-us"
+configuration = { board_kind = "all", brand = "brand-3" }
+
+[[sources]]
+source_id = "nottingham-city-eteach"
+display_name = "Nottingham City Jobs in Schools — eTeach supplement"
+employer_type = "Education"
+mandatory = true
+adapter = "direct_council"
+official_entry_url = "https://www.nottinghamcity.gov.uk/jobs-and-working/jobs-in-schools/"
+configuration = { organization = "Nottingham City school/trust", detail_links = true, allow_organization_from_advert = true }
+
+[[sources]]
+source_id = "archway-learning-trust"
+display_name = "Archway Learning Trust — vacancies"
+employer_type = "Education"
+mandatory = true
+adapter = "academy_trust"
+official_entry_url = "https://www.archwaytrust.co.uk/vacancies/"
+configuration = { organization = "Archway Learning Trust" }
+
+[[sources]]
+source_id = "tapestry-learning-partnership"
+display_name = "Tapestry Learning Partnership — job vacancies"
+employer_type = "Education"
+mandatory = true
+adapter = "academy_trust"
+official_entry_url = "https://tapestrylearningpartnership.org/job-vacancies"
+configuration = { organization = "Tapestry Learning Partnership" }
+
+[[sources]]
+source_id = "greenwood-academies"
+display_name = "Greenwood Academies Trust — vacancies"
+employer_type = "Education"
+mandatory = true
+adapter = "academy_trust"
+official_entry_url = "https://www.greenwoodacademies.org/vacancies"
+configuration = { organization = "Greenwood Academies Trust" }
+
+[[sources]]
+source_id = "redhill-academy-trust"
+display_name = "The Redhill Academy Trust — vacancies"
+employer_type = "Education"
+mandatory = true
+adapter = "academy_trust"
+official_entry_url = "https://www.redhillacademytrust.org.uk/vacancies"
+configuration = { organization = "The Redhill Academy Trust" }
+
+[[sources]]
+source_id = "spencer-academies"
+display_name = "The Spencer Academies Trust — work with us"
+employer_type = "Education"
+mandatory = true
+adapter = "academy_trust"
+official_entry_url = "https://www.spencertrust.org.uk/work-with-us"
+configuration = { organization = "The Spencer Academies Trust", job_link_pattern = "page/\\?title=Job\\+Title", detail_links = true }
+
+[[sources]]
+source_id = "diverse-academies"
+display_name = "Diverse Academies Trust — job vacancies"
+employer_type = "Education"
+mandatory = true
+adapter = "academy_trust"
+official_entry_url = "https://www.diverseacademies.org.uk/job-vacancies/"
+configuration = { organization = "Diverse Academies Trust" }
+
+[[sources]]
+source_id = "flying-high-partnership"
+display_name = "Flying High Partnership — career opportunities"
+employer_type = "Education"
+mandatory = true
+adapter = "academy_trust"
+official_entry_url = "https://www.flyinghighpartnership.co.uk/"
+configuration = { organization = "Flying High Partnership" }
+
+[[sources]]
+source_id = "minster-trust"
+display_name = "Minster Trust for Education — careers"
+employer_type = "Education"
+mandatory = true
+adapter = "academy_trust"
+official_entry_url = "https://www.mitretrust.org.uk/careers"
+configuration = { organization = "Minster Trust for Education" }
+
+[[sources]]
+source_id = "nova-education-trust"
+display_name = "Nova Education Trust — careers"
+employer_type = "Education"
+mandatory = true
+adapter = "academy_trust"
+official_entry_url = "https://www.novaeducationtrust.net/"
+configuration = { organization = "Nova Education Trust" }
+
+[[sources]]
+source_id = "diocese-southwell-nottingham-mat"
+display_name = "Diocese of Southwell and Nottingham Multi Academy Trust — careers"
+employer_type = "Education"
+mandatory = true
+adapter = "academy_trust"
+official_entry_url = "https://www.snmat.org.uk/"
+configuration = { organization = "Diocese of Southwell and Nottingham Multi Academy Trust" }
+
+[[sources]]
+source_id = "east-midlands-education-trust"
+display_name = "East Midlands Education Trust — vacancies"
+employer_type = "Education"
+mandatory = true
+adapter = "academy_trust"
+official_entry_url = "https://www.emet.academy/vacancies"
+configuration = { organization = "East Midlands Education Trust" }
+
+[[sources]]
+source_id = "nottingham-cvs"
+display_name = "Nottingham CVS — Jobs"
+employer_type = "VCSE"
+mandatory = true
+adapter = "nottingham_cvs"
+official_entry_url = "https://www.nottinghamcvs.co.uk/news-and-events/jobs"
+configuration = { location_default = "Nottinghamshire-wide", detail_links = true, job_link_pattern = "(personio\\.com/job/|equation\\.org\\.uk/|careers\\.trentbridge\\.co\\.uk/job/|broadway\\.org\\.uk/|emmanuelhouse\\.org\\.uk/about-us/jobs/|nottscountyfoundation\\.org\\.uk/about/join-us/)" }
+
+[[sources]]
+source_id = "other-nhs-nottinghamshire"
+display_name = "Other NHS Nottinghamshire employers — optional discovery"
+employer_type = "NHS"
+mandatory = false
+adapter = "nhs"
+official_entry_url = "https://www.jobs.nhs.uk/candidate/search/results"
+configuration = { employer = "", search_url = "https://www.jobs.nhs.uk/candidate/search/results", query = "Nottinghamshire NHS", search_params = { location = "Nottinghamshire" }, location_default = "Nottinghamshire" }
