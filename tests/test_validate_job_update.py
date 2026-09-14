@@ -1,14 +1,9 @@
-import base64
 import csv
-import hashlib
 import io
-import json
-import tempfile
 import unittest
 from copy import deepcopy
-from pathlib import Path
 
-from scripts.validate_job_update import EXPECTED_COLUMNS, ValidationError, load_manifest, validate_candidate
+from scripts.validate_job_update import EXPECTED_COLUMNS, ValidationError, validate_csv_bytes
 
 
 BASE_ROW = {
@@ -35,90 +30,70 @@ def csv_bytes(rows):
     writer = csv.DictWriter(stream, fieldnames=EXPECTED_COLUMNS, lineterminator="\r\n")
     writer.writeheader()
     writer.writerows(rows)
-    return b"\xef\xbb\xbf" + stream.getvalue().encode("utf-8")
-
-
-def manifest_for(data, rows):
-    return {
-        "date_checked": "2026-09-07",
-        "row_count": len(rows),
-        "sha256": hashlib.sha256(data).hexdigest(),
-        "base_main_sha": "a" * 40,
-        "chunks": [".job-update/chunk-001.b64"],
-    }
+    return stream.getvalue().encode("utf-8")
 
 
 class CandidateValidationTests(unittest.TestCase):
-    def test_valid_candidate(self):
+    def test_valid_candidate_reports_exact_metadata(self):
         rows = [deepcopy(BASE_ROW)]
         data = csv_bytes(rows)
-        records = validate_candidate(data, manifest_for(data, rows))
-        self.assertEqual(1, len(records))
+        result = validate_csv_bytes(data, declared_date="2026-09-07")
+        self.assertTrue(result["ok"])
+        self.assertEqual("2026-09-07", result["date_checked"])
+        self.assertEqual(1, result["row_count"])
+        self.assertEqual(64, len(result["sha256"]))
 
-    def test_bad_checksum_fails(self):
-        rows = [deepcopy(BASE_ROW)]
-        data = csv_bytes(rows)
-        manifest = manifest_for(data, rows)
-        manifest["sha256"] = "0" * 64
+    def test_declared_date_mismatch_fails(self):
+        data = csv_bytes([deepcopy(BASE_ROW)])
         with self.assertRaises(ValidationError):
-            validate_candidate(data, manifest)
+            validate_csv_bytes(data, declared_date="2026-09-08")
+
+    def test_mixed_date_checked_fails(self):
+        first = deepcopy(BASE_ROW)
+        second = deepcopy(BASE_ROW)
+        second.update(job_reference="REF-2", job_title="Zulu", date_checked="2026-09-08")
+        data = csv_bytes([first, second])
+        with self.assertRaises(ValidationError):
+            validate_csv_bytes(data)
 
     def test_out_of_window_fails(self):
         row = deepcopy(BASE_ROW)
         row["closing_date"] = "2026-11-03"
         data = csv_bytes([row])
         with self.assertRaises(ValidationError):
-            validate_candidate(data, manifest_for(data, [row]))
+            validate_csv_bytes(data)
 
     def test_wrong_sort_fails(self):
         first = deepcopy(BASE_ROW)
         first.update(job_reference="REF-2", job_title="Zulu", apply_url="https://example.org/jobs/2", source_url="https://example.org/jobs/2")
         second = deepcopy(BASE_ROW)
         second.update(job_reference="REF-1", job_title="Alpha")
-        rows = [first, second]
-        data = csv_bytes(rows)
+        data = csv_bytes([first, second])
         with self.assertRaises(ValidationError):
-            validate_candidate(data, manifest_for(data, rows))
+            validate_csv_bytes(data)
 
     def test_duplicate_reference_fails(self):
         first = deepcopy(BASE_ROW)
         second = deepcopy(BASE_ROW)
         second.update(job_title="Different title", apply_url="https://example.org/jobs/2", source_url="https://example.org/jobs/2")
-        rows = [first, second]
-        data = csv_bytes(rows)
+        data = csv_bytes([first, second])
         with self.assertRaises(ValidationError):
-            validate_candidate(data, manifest_for(data, rows))
+            validate_csv_bytes(data)
 
     def test_same_fallback_key_allowed_for_distinct_advert_urls(self):
         first = deepcopy(BASE_ROW)
         first.update(job_reference="", apply_url="https://example.org/jobs/a", source_url="https://example.org/jobs/a")
         second = deepcopy(first)
         second.update(apply_url="https://example.org/jobs/b", source_url="https://example.org/jobs/b")
-        rows = [first, second]
-        data = csv_bytes(rows)
-        records = validate_candidate(data, manifest_for(data, rows))
-        self.assertEqual(2, len(records))
+        data = csv_bytes([first, second])
+        result = validate_csv_bytes(data)
+        self.assertEqual(2, result["row_count"])
 
-
-class ManifestTests(unittest.TestCase):
-    def test_manifest_and_chunk_path_contract(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            payload = csv_bytes([deepcopy(BASE_ROW)])
-            manifest = manifest_for(payload, [BASE_ROW])
-            (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
-            parsed = load_manifest(root / "manifest.json")
-            self.assertEqual(manifest["sha256"], parsed["sha256"])
-
-    def test_manifest_rejects_path_escape(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            payload = csv_bytes([deepcopy(BASE_ROW)])
-            manifest = manifest_for(payload, [BASE_ROW])
-            manifest["chunks"] = ["../secret.b64"]
-            (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
-            with self.assertRaises(ValidationError):
-                load_manifest(root / "manifest.json")
+    def test_zero_rows_allowed_with_declared_date(self):
+        data = csv_bytes([])
+        result = validate_csv_bytes(data, declared_date="2026-09-07")
+        self.assertEqual(0, result["row_count"])
+        self.assertEqual("2026-09-07", result["date_checked"])
 
 
 if __name__ == "__main__":
