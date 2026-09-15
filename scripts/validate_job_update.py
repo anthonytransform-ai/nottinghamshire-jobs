@@ -15,7 +15,7 @@ import io
 import json
 import re
 import sys
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from pathlib import Path
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
@@ -190,8 +190,8 @@ def validate_record(record: dict[str, str], index: int, update_date: date, requi
         fail(f"row {line}: date_checked must equal update date {update_date.isoformat()}")
 
     closing_date = parse_iso_date(record["closing_date"], f"row {line} closing_date")
-    if closing_date < update_date or closing_date > update_date + timedelta(days=56):
-        fail(f"row {line}: closing_date is outside the inclusive 56-day window")
+    if closing_date < update_date:
+        fail(f"row {line}: closing_date must be on or after the update date")
 
     closing_time = record["closing_time"]
     if closing_time:

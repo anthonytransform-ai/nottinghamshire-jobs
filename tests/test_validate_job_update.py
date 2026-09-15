@@ -2,6 +2,8 @@ import csv
 import io
 import unittest
 from copy import deepcopy
+from datetime import datetime as DateTime
+from unittest.mock import patch
 
 from scripts.validate_job_update import EXPECTED_COLUMNS, ValidationError, validate_csv_bytes
 
@@ -56,12 +58,29 @@ class CandidateValidationTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             validate_csv_bytes(data)
 
-    def test_out_of_window_fails(self):
+    def test_far_future_closing_date_is_allowed(self):
         row = deepcopy(BASE_ROW)
         row["closing_date"] = "2026-11-03"
         data = csv_bytes([row])
+        result = validate_csv_bytes(data)
+        self.assertEqual(1, result["row_count"])
+
+    def test_closing_date_before_update_date_fails(self):
+        row = deepcopy(BASE_ROW)
+        row["closing_date"] = "2026-09-06"
+        data = csv_bytes([row])
         with self.assertRaises(ValidationError):
             validate_csv_bytes(data)
+
+    def test_same_day_closing_time_is_checked(self):
+        row = deepcopy(BASE_ROW)
+        row["closing_date"] = "2026-09-07"
+        row["closing_time"] = "17:00"
+        data = csv_bytes([row])
+        with patch("scripts.validate_job_update.datetime") as clock:
+            clock.now.return_value = DateTime(2026, 9, 7, 17, 0)
+            with self.assertRaises(ValidationError):
+                validate_csv_bytes(data, declared_date="2026-09-07", require_today=True)
 
     def test_wrong_sort_fails(self):
         first = deepcopy(BASE_ROW)
