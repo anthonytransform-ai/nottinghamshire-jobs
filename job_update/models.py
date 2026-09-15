@@ -43,6 +43,11 @@ class RawVacancy:
     salary_raw: str = ""
     apply_url_raw: str = ""
     reference_raw: str = ""
+    advertised_employer_raw: str = ""
+    host_organization_raw: str = ""
+    host_association_verified: bool = False
+    host_association_type: str = ""
+    host_association_evidence: str = ""
     description_raw: str = ""
     retrieved_at: str = ""
     evidence: dict[str, Any] = field(default_factory=dict)
@@ -132,6 +137,12 @@ class NormalizedVacancy:
     source_id: str = ""
     verification_method: str = ""
     evidence: dict[str, Any] = field(default_factory=dict)
+    source_record_id: str = ""
+    advertised_employer: str = ""
+    host_organization: str = ""
+    host_association_verified: bool = False
+    host_association_type: str = ""
+    host_association_evidence: str = ""
 
     def to_csv_row(self) -> dict[str, str]:
         return {
@@ -163,6 +174,7 @@ class ReviewItem:
     candidate_values: list[str]
     reason: str
     source_record_id: str = ""
+    resolution_key: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -191,3 +203,5 @@ class RunContext:
     live: bool = True
     allow_browser: bool = True
     now: datetime | None = None
+    classification_rules: Any = None
+    overrides: dict[str, Any] = field(default_factory=dict)

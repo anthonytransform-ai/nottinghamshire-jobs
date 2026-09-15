@@ -63,7 +63,7 @@ def parse_gedling_html(html: str, source_url: str, *, source_id: str, organizati
                 salary=_inline_value(body, "Salary"),
                 work_pattern=_inline_value(body, "Hours"),
                 apply_url=source_url,
-                reference=record_id,
+                reference="",
                 description=text,
                 evidence={"gedling_event_target": event_target, "detail_required": bool(event_target)},
             )
@@ -74,7 +74,7 @@ def parse_gedling_html(html: str, source_url: str, *, source_id: str, organizati
 class GedlingAdapter(BaseAdapter):
     def fetch(self, context: RunContext):
         url = str(self.spec.configuration.get("list_url") or self.spec.official_entry_url)
-        response = context.http_client.get(url, use_cache=False)
+        response = context.http_client.get(url, use_cache=True)
         method = "direct-http"
         if not response.ok and context.allow_browser:
             rendered = context.browser.render(url, wait_ms=1_500)
@@ -91,7 +91,7 @@ class GedlingAdapter(BaseAdapter):
             return blocked_result(self.spec, response.error or f"Gedling jobs board failed ({response.status_code})", source_url=url)
 
         organization = str(self.spec.configuration.get("organization", self.spec.display_name))
-        location = str(self.spec.configuration.get("location_default", "Gedling"))
+        location = str(self.spec.configuration.get("location_default", "Gedling")) if self.spec.configuration.get("location_default_verified", False) else ""
         records, has_cards = parse_gedling_html(
             html,
             source_url,
@@ -138,7 +138,7 @@ class GedlingAdapter(BaseAdapter):
         return self.result(
             method=method,
             raw=records,
-            source_total=len(records) if records or no_results else None,
+            source_total=0 if no_results else None,
             status=status,
             warnings=warnings,
             source_url=source_url,
@@ -159,6 +159,9 @@ class GedlingAdapter(BaseAdapter):
         record.evidence["detail_verified"] = True
         record.evidence["internal_only"] = "internal only" in text.casefold()
         record.evidence["withdrawn"] = "vacancy withdrawn" in text.casefold() or "no longer accepting applications" in text.casefold()
+        reference_match = re.search(r"(?:job|vacancy)\s+reference\s*[:#]?\s*([A-Z0-9][A-Z0-9/_-]{2,})", text, re.I)
+        if reference_match:
+            record.reference_raw = reference_match.group(1)
         for label, url in extract_links(html, source_url):
             if re.search(r"apply|application", label, re.I) and not re.search(r"guidance|policy", label, re.I):
                 record.apply_url_raw = url

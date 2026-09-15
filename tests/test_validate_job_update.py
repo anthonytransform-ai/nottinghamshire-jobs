@@ -56,12 +56,11 @@ class CandidateValidationTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             validate_csv_bytes(data)
 
-    def test_out_of_window_fails(self):
+    def test_far_future_fixed_deadline_is_allowed(self):
         row = deepcopy(BASE_ROW)
-        row["closing_date"] = "2026-11-03"
+        row["closing_date"] = "2027-01-31"
         data = csv_bytes([row])
-        with self.assertRaises(ValidationError):
-            validate_csv_bytes(data)
+        self.assertTrue(validate_csv_bytes(data)["ok"])
 
     def test_wrong_sort_fails(self):
         first = deepcopy(BASE_ROW)
@@ -80,14 +79,14 @@ class CandidateValidationTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             validate_csv_bytes(data)
 
-    def test_same_fallback_key_allowed_for_distinct_advert_urls(self):
+    def test_same_fallback_key_fails_even_for_distinct_advert_urls(self):
         first = deepcopy(BASE_ROW)
         first.update(job_reference="", apply_url="https://example.org/jobs/a", source_url="https://example.org/jobs/a")
         second = deepcopy(first)
         second.update(apply_url="https://example.org/jobs/b", source_url="https://example.org/jobs/b")
         data = csv_bytes([first, second])
-        result = validate_csv_bytes(data)
-        self.assertEqual(2, result["row_count"])
+        with self.assertRaises(ValidationError):
+            validate_csv_bytes(data)
 
     def test_zero_rows_allowed_with_declared_date(self):
         data = csv_bytes([])

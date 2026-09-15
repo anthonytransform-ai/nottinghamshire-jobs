@@ -1,10 +1,10 @@
-"""Strict Nottinghamshire and inclusive 56-day eligibility rules."""
+"""Strict Nottinghamshire and fixed-deadline eligibility rules."""
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from urllib.parse import urlparse
 
 from .adapters.common import parse_date_text, parse_time_text
@@ -36,13 +36,39 @@ def evaluate(
         return EligibilityDecision(False, False, "employer type is outside the publication contract")
     if any(bool(flags.get(key)) for key in ("internal_only", "withdrawn", "overseas")):
         return EligibilityDecision(False, False, "internal, withdrawn or overseas vacancy")
-    if bool(flags.get("employer_mismatch")):
-        return EligibilityDecision(False, False, "shared recruitment result does not verify the configured employer")
+    if bool(flags.get("review_policy")) and str(flags["review_policy"]).casefold() == "exclude":
+        return EligibilityDecision(False, False, "explicit reviewed policy exclusion")
+    if bool(flags.get("out_of_scope_employer")) or bool(flags.get("not_nhs_employer")):
+        return EligibilityDecision(False, False, "advertised employer is outside the configured source scope")
+    if bool(flags.get("detail_required")) and not bool(flags.get("detail_verified")):
+        return EligibilityDecision(False, True, "source requires detail-level verification before publication")
+    if employer_type == "Education" and (
+        bool(flags.get("independent"))
+        or bool(flags.get("private"))
+        or bool(flags.get("commercial_training_provider"))
+    ):
+        return EligibilityDecision(False, False, "independent, private or commercial education provider")
+    if employer_type == "Education" and bool(flags.get("external_apprenticeship")):
+        return EligibilityDecision(False, False, "external apprenticeship/student opportunity, not college employment")
+    if employer_type in {"Council", "NHS", "Education"}:
+        advertised = " ".join((raw.advertised_employer_raw or raw.organization_raw).casefold().split())
+        contractor_marker = bool(flags.get("agency") or flags.get("subcontractor") or flags.get("generic_agency"))
+        host_source = raw.host_organization_raw or ("" if contractor_marker else raw.organization_raw)
+        host = " ".join(host_source.casefold().split())
+        direct = bool(advertised and host and (advertised == host or advertised in host or host in advertised))
+        association_verified = bool(raw.host_association_verified or flags.get("host_association_verified") or direct)
+        if not association_verified:
+            if bool(flags.get("agency")) or bool(flags.get("subcontractor")) or bool(flags.get("generic_agency")):
+                return EligibilityDecision(False, False, "agency/subcontractor host is not identified or verified")
+            return EligibilityDecision(False, True, "host/service association is unresolved")
     if bool(flags.get("open_ended")):
         return EligibilityDecision(False, False, "open-ended vacancy has no fixed deadline")
     if employer_type == "Education" and bool(flags.get("studentship")) and "paid employment" not in evidence_text:
         return EligibilityDecision(False, False, "non-employment studentship/study opportunity")
-    if re.search(r"\b(unpaid\s+volunteer|volunteer(?:ing)?|unpaid\s+work\s+experience|work experience placement)\b", evidence_text):
+    if bool(flags.get("unpaid_volunteering")) or re.search(
+        r"\b(unpaid\s+(?:volunteer(?:ing)?|role|work\s+experience)|volunteer(?:ing)?\s+opportunity|work\s+experience\s+placement)\b",
+        evidence_text,
+    ):
         return EligibilityDecision(False, False, "unpaid volunteering/work experience")
     if re.search(r"\b(talent pool|talentpool|speculative|open application|register your interest|open until filled|rolling recruitment)\b", evidence_text):
         return EligibilityDecision(False, False, "talent-pool, speculative or open-ended recruitment")
@@ -61,11 +87,8 @@ def evaluate(
         parsed_date = date.fromisoformat(closing_date)
     except ValueError:
         return EligibilityDecision(False, True, "closing date is not canonical")
-    end_date = update_date + timedelta(days=56)
     if parsed_date < update_date:
         return EligibilityDecision(False, False, "closing date has passed", closing_date)
-    if parsed_date > end_date:
-        return EligibilityDecision(False, False, "closing date is beyond the inclusive 56-day window", closing_date)
     closing_time = parse_time_text(raw.closing_time_raw)
     if raw.closing_time_raw.strip() and not closing_time:
         return EligibilityDecision(False, True, "closing time could not be parsed", closing_date)

@@ -8,9 +8,10 @@ from pathlib import Path
 from typing import Any
 
 from .adapters.base import blocked_result
-from .audit import anomaly_warnings, write_source_audit
-from .classify import classify_job_area, classify_location
+from .audit import anomaly_warnings, write_source_audit, write_history_snapshot
+from .classify import classify_job_area, classify_location, load_classification_rules
 from .csv_writer import write_csv
+from .configuration import apply_resolution, apply_tracked_overrides, load_resolutions, load_tracked_overrides, resolution_key
 from .dedupe import deduplicate
 from .eligibility import evaluate
 from .models import Exclusion, ReviewItem, RunContext, SourceResult, SourceStatus
@@ -27,16 +28,25 @@ class JobUpdatePipeline:
         self.context = context
         self.context.run_dir = Path(self.context.run_dir)
         self.context.run_dir.mkdir(parents=True, exist_ok=True)
+        if self.context.classification_rules is None:
+            self.context.classification_rules = load_classification_rules()
+        if not self.context.overrides:
+            self.context.overrides = load_tracked_overrides(self.context.run_dir.parent.parent / "config" / "overrides.toml")
 
     def fetch(self) -> list[SourceResult]:
+        if not self.context.live:
+            raise PipelineError("source retrieval is disabled for a non-live context; use doctor --live or a live run")
         results: list[SourceResult] = []
-        for adapter in self.context.registry.adapters():
-            try:
-                result = adapter.fetch(self.context)
-            except Exception as exc:
-                # One broken source must not erase the mandatory audit row.
-                result = blocked_result(adapter.spec, f"adapter error: {type(exc).__name__}: {exc}")
-            results.append(result)
+        try:
+            for adapter in self.context.registry.adapters():
+                try:
+                    result = adapter.fetch(self.context)
+                except Exception as exc:
+                    # One broken source must not erase the mandatory audit row.
+                    result = blocked_result(adapter.spec, f"adapter error: {type(exc).__name__}: {exc}")
+                results.append(result)
+        finally:
+            self._close_resources()
         self._write_source_results(results)
         self._write_raw_records(results)
         write_source_audit(
@@ -58,20 +68,26 @@ class JobUpdatePipeline:
         review_items: list[ReviewItem] = []
         exclusions: list[Exclusion] = []
         date_checked = self.context.date_checked.isoformat()
+        resolutions = load_resolutions(self.context.run_dir / "review_resolutions.toml")
         for result in results:
             spec = self.context.registry.get(result.source_id)
             result.eligible_hint_count = 0
             result.exclusions = []
             for raw in result.raw_vacancies:
+                decision_key = resolution_key(raw)
+                apply_tracked_overrides(raw, self.context.overrides if isinstance(self.context.overrides, list) else [])
+                apply_resolution(raw, resolutions.get(decision_key))
                 location_area, location_reason, location_candidates = classify_location(
                     raw.location_raw,
                     raw.description_raw,
                     str(raw.evidence.get("location_area_override", "")),
+                    rules=self.context.classification_rules,
                 )
                 job_area, job_reason, job_candidates = classify_job_area(
                     raw.title_raw,
                     raw.description_raw,
                     str(raw.evidence.get("job_area_override", "")),
+                    rules=self.context.classification_rules,
                 )
                 decision = evaluate(
                     raw,
@@ -95,7 +111,12 @@ class JobUpdatePipeline:
                     normalized.append(record)
                     result.eligible_hint_count += 1
                     continue
-                if decision.review or location_area is None or job_area is None:
+                # Eligibility owns the distinction between a hard policy
+                # exclusion and a genuinely ambiguous record. A hard
+                # exclusion must not become a review item merely because its
+                # location or role classifier has no answer (for example an
+                # out-of-scope NHS advert returned by a broad search).
+                if decision.review:
                     ambiguous_field, candidate_values = self._review_field(
                         decision.reason,
                         location_area=location_area,
@@ -107,8 +128,9 @@ class JobUpdatePipeline:
                         ReviewItem(
                             source=result.source_name,
                             title=raw.title_raw,
-                            organization=raw.organization_raw,
+                            organization=raw.advertised_employer_raw or raw.organization_raw or raw.host_organization_raw,
                             relevant_evidence={
+                                "resolution_key": decision_key,
                                 "location": raw.location_raw,
                                 "description": raw.description_raw,
                                 "apply_url": raw.apply_url_raw,
@@ -118,11 +140,17 @@ class JobUpdatePipeline:
                                 "location_candidates": location_candidates,
                                 "job_area_reason": job_reason,
                                 "job_area_candidates": job_candidates,
+                                "advertised_employer": raw.advertised_employer_raw,
+                                "host_organization": raw.host_organization_raw,
+                                "host_association_verified": raw.host_association_verified,
+                                "host_association_type": raw.host_association_type,
+                                "host_association_evidence": raw.host_association_evidence,
                             },
                             ambiguous_field=ambiguous_field,
                             candidate_values=candidate_values,
                             reason=decision.reason,
                             source_record_id=raw.source_record_id,
+                            resolution_key=decision_key,
                         )
                     )
                 else:
@@ -156,6 +184,10 @@ class JobUpdatePipeline:
             json.dumps([asdict(record) for record in selected], indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8",
         )
+        (self.context.run_dir / "resolved_raw_records.json").write_text(
+            json.dumps([raw.to_dict() for result in results for raw in result.raw_vacancies], indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
         (self.context.run_dir / "exclusions.json").write_text(
             json.dumps([item.to_dict() for item in exclusions], indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8",
@@ -166,7 +198,16 @@ class JobUpdatePipeline:
             self.context.run_dir / "source_audit.json",
             self.context.run_dir / "source_audit.md",
         )
-        anomalies = anomaly_warnings(results, candidate_row_count=len(selected))
+        anomalies = anomaly_warnings(
+            results,
+            candidate_row_count=len(selected),
+            history_path=self.context.run_dir.parent / "history.json",
+        )
+        write_history_snapshot(
+            results,
+            candidate_row_count=len(selected),
+            path=self.context.run_dir.parent / "history.json",
+        )
         summary = {
             "date_checked": date_checked,
             "row_count": len(selected),
@@ -193,6 +234,10 @@ class JobUpdatePipeline:
         job_candidates: list[str],
     ) -> tuple[str, list[str]]:
         lowered = reason.casefold()
+        if "detail" in lowered or "verification" in lowered:
+            return "detail_verification", []
+        if "host" in lowered or "association" in lowered or "agency" in lowered:
+            return "host_association", []
         if "location" in lowered or "base" in lowered or "nottinghamshire" in lowered:
             return "location_area", location_candidates
         if "job-area" in lowered or "job area" in lowered or "classification" in lowered:
@@ -212,6 +257,29 @@ class JobUpdatePipeline:
     def run(self, *, output_path: Path | None = None) -> dict[str, Any]:
         results = self.fetch()
         return self.build(results, output_path=output_path)
+
+    def diagnostics(self) -> dict[str, Any]:
+        """Return local readiness information without contacting sources."""
+
+        adapters = self.context.registry.adapters()
+        return {
+            "live": False,
+            "network_requests": 0,
+            "source_count": len(adapters),
+            "mandatory_source_count": sum(1 for adapter in adapters if adapter.spec.mandatory),
+            "browser_available": bool(getattr(self.context.browser, "available", lambda: False)()),
+            "adapter_errors": [],
+        }
+
+    def _close_resources(self) -> None:
+        for resource in (self.context.browser, self.context.http_client):
+            close = getattr(resource, "close", None)
+            if callable(close):
+                try:
+                    close()
+                except Exception:
+                    # Cleanup must not erase the source audit produced by the run.
+                    pass
 
     def _write_source_results(self, results: list[SourceResult]) -> None:
         (self.context.run_dir / "source_results.json").write_text(
@@ -241,7 +309,7 @@ class JobUpdatePipeline:
             f"# Nottinghamshire Job Update candidate — {summary['date_checked']}",
             "",
             f"- Eligible vacancies: **{summary['row_count']}**",
-            f"- Closing-date window: **{summary['date_checked']} through +56 calendar days inclusive**",
+            f"- Closing-date policy: **verified fixed deadline on or after {summary['date_checked']}; no maximum future horizon**",
             f"- Candidate CSV: `{summary['output']}`",
             f"- SHA-256: `{summary['sha256']}`",
             "- Publication: manual one-file `jobs.csv` PR; no automatic merge or direct write to `main`.",

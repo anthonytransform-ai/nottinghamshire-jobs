@@ -160,6 +160,16 @@ class HttpClient:
     def get(self, url: str, **kwargs: Any) -> HttpResponse:
         return self.request(url, **kwargs)
 
+    def close(self) -> None:
+        """Release the optional persistent HTTP connection pool."""
+
+        if self._httpx is not None:
+            try:
+                self._httpx.close()
+            except Exception:
+                pass
+            self._httpx = None
+
     def _respect_host_delay(self, host: str) -> None:
         if not host or self.host_delay <= 0:
             return

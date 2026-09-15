@@ -197,12 +197,12 @@ def _job_card_records(html: str, source_id: str, organization: str, source_url: 
         location = re.sub(r"\blocation_on\b", "", location, flags=re.I).strip() or default_location
         reference = card.field("class:jobreference", "testid:span-reference")
         reference_match = re.search(r"(?:job\s*)?(?:reference|ref)\s*[:#-]?\s*([A-Za-z0-9/_-]+)", reference or card.text, re.I)
-        reference = reference_match.group(1) if reference_match else reference or record_id
+        reference = reference_match.group(1) if reference_match else reference
         records.append(
             make_raw(
                 source_id=source_id,
                 source_url=source_url,
-                record_id=record_id or reference,
+                record_id=record_id,
                 title=title,
                 organization=organization,
                 location=location,
@@ -214,7 +214,7 @@ def _job_card_records(html: str, source_id: str, organization: str, source_url: 
                 apply_url=detail_link or source_url,
                 reference=reference,
                 description=card.text,
-                evidence={"jobtrain": True, "dynamic_card": True},
+                evidence={"jobtrain": True, "dynamic_card": True, "detail_required": True},
             )
         )
     return records
@@ -228,11 +228,11 @@ class NTUJobtrainAdapter(BaseAdapter):
     def fetch(self, context: RunContext):
         config = self.spec.configuration
         url = self.spec.official_entry_url
-        response = context.http_client.get(url, use_cache=False)
+        response = context.http_client.get(url, use_cache=True)
         method = "direct-http"
         warnings: list[str] = []
         organization = str(config.get("organization", "Nottingham Trent University"))
-        default_location = str(config.get("location_default", "Nottingham"))
+        default_location = str(config.get("location_default", "")) if config.get("location_default_verified", False) else ""
         if response.ok:
             source_url = response.url or url
             total, records = parse_jobtrain_html(response.text, self.spec.source_id, organization, source_url, default_location)
@@ -295,8 +295,11 @@ class NTUJobtrainAdapter(BaseAdapter):
         failures = 0
         for record in records:
             if not record.apply_url_raw or record.apply_url_raw == record.source_url:
+                if record.evidence.get("detail_required"):
+                    failures += 1
+                    record.evidence["detail_fetch_error"] = "detail URL was not exposed by the search result"
                 continue
-            response = context.http_client.get(record.apply_url_raw, use_cache=False)
+            response = context.http_client.get(record.apply_url_raw, use_cache=True)
             if not response.ok:
                 failures += 1
                 record.evidence["detail_fetch_error"] = response.error or f"HTTP {response.status_code}"

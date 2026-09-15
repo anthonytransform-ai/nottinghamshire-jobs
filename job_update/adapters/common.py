@@ -8,7 +8,7 @@ from typing import Iterable
 from urllib.parse import urljoin
 
 from ..html_tools import absolute_url, clean_text, extract_links, extract_tag_blocks, first_attr
-from ..models import RawVacancy
+from ..models import RawVacancy, SourceSpec
 
 
 MONTHS = {
@@ -29,7 +29,9 @@ def parse_date_text(value: str, *, reference_year: int | None = None) -> str:
     text = clean_text(value).strip()
     if not text:
         return ""
-    iso = re.search(r"\b(20\d{2})[-/](\d{1,2})[-/](\d{1,2})\b", text)
+    # Accept both a bare ISO date and an ISO timestamp such as a structured
+    # ``validThrough`` value from a public JobPosting payload.
+    iso = re.search(r"(?<!\d)(20\d{2})[-/](\d{1,2})[-/](\d{1,2})(?!\d)", text)
     if iso:
         try:
             return date(int(iso.group(1)), int(iso.group(2)), int(iso.group(3))).isoformat()
@@ -71,7 +73,9 @@ def parse_time_text(value: str) -> str:
     text = clean_text(value).strip().lower().replace(".", "")
     if not text:
         return ""
-    match = re.search(r"\b(\d{1,2}):(\d{2})\s*(am|pm)?\b", text)
+    match = re.search(r"t(\d{1,2}):(\d{2})\s*(am|pm)?\b", text)
+    if not match:
+        match = re.search(r"\b(\d{1,2}):(\d{2})\s*(am|pm)?\b", text)
     if not match:
         match = re.search(r"\b(\d{1,2})\s*(am|pm)\b", text)
         if not match:
@@ -221,9 +225,11 @@ def first_title(body: str, fallback: str = "") -> str:
 def first_link(body: str, base_url: str) -> str:
     links = extract_links(body, base_url)
     for label, url in links:
+        if not url or url.casefold().startswith(("javascript:", "mailto:", "tel:")) or "void(0)" in url.casefold():
+            continue
         if re.search(r"job|vacan|career|opportun|apply|profile", f"{label} {url}", re.I):
             return url
-    return links[0][1] if links else ""
+    return next((url for _label, url in links if url and not url.casefold().startswith(("javascript:", "mailto:", "tel:")) and "void(0)" not in url.casefold()), "")
 
 
 def labelled_value(text: str, labels: Iterable[str]) -> str:
@@ -247,14 +253,34 @@ def make_raw(
     salary: str = "",
     apply_url: str = "",
     reference: str = "",
+    advertised_employer: str = "",
+    host_organization: str = "",
+    host_association_verified: bool | None = None,
+    host_association_type: str = "",
+    host_association_evidence: str = "",
     description: str = "",
     evidence: dict[str, object] | None = None,
 ) -> RawVacancy:
+    clean_evidence = dict(evidence or {})
+    public_employer = clean_text(advertised_employer or organization)
+    host = clean_text(host_organization)
+    if host_association_verified is None:
+        host_association_verified = bool(host and _same_organization(public_employer, host))
+    if not host_association_type and host_association_verified:
+        host_association_type = "direct"
+    if host_association_evidence:
+        clean_evidence.setdefault("host_association_evidence", host_association_evidence)
+    clean_evidence.setdefault("advertised_employer", public_employer)
+    if host:
+        clean_evidence.setdefault("host_organization", host)
+    clean_evidence.setdefault("host_association_verified", bool(host_association_verified))
+    if host_association_type:
+        clean_evidence.setdefault("host_association_type", host_association_type)
     return RawVacancy(
         source_id=source_id,
         source_url=source_url,
         source_record_id=record_id,
-        organization_raw=clean_text(organization),
+        organization_raw=public_employer,
         title_raw=clean_text(title),
         location_raw=clean_text(location),
         closing_date_raw=clean_text(deadline),
@@ -263,11 +289,27 @@ def make_raw(
         work_pattern_raw=clean_text(work_pattern),
         salary_raw=clean_text(salary),
         apply_url_raw=apply_url,
-        reference_raw=clean_text(reference or record_id),
+        # ``record_id`` is a retrieval identity. It is not a public reference
+        # unless the source explicitly supplied it as one.
+        reference_raw=clean_text(reference),
+        advertised_employer_raw=public_employer,
+        host_organization_raw=host,
+        host_association_verified=bool(host_association_verified),
+        host_association_type=clean_text(host_association_type),
+        host_association_evidence=clean_text(host_association_evidence),
         description_raw=clean_text(description),
         retrieved_at=datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
-        evidence=evidence or {},
+        evidence=clean_evidence,
     )
+
+
+def _same_organization(left: str, right: str) -> bool:
+    def normalize(value: str) -> str:
+        return re.sub(r"[^a-z0-9]+", " ", value.casefold()).strip()
+
+    left_value = normalize(left)
+    right_value = normalize(right)
+    return bool(left_value and right_value and (left_value == right_value or left_value in right_value or right_value in left_value))
 
 
 def dedupe_raw(records: Iterable[RawVacancy]) -> list[RawVacancy]:
@@ -280,3 +322,37 @@ def dedupe_raw(records: Iterable[RawVacancy]) -> list[RawVacancy]:
         seen.add(key)
         output.append(record)
     return output
+
+
+def prepare_source_metadata(raw: RawVacancy, spec: SourceSpec) -> RawVacancy:
+    """Fill internal employer/host metadata without inventing public fields."""
+
+    advertised = clean_text(raw.advertised_employer_raw or raw.organization_raw)
+    host = clean_text(
+        raw.host_organization_raw
+        or raw.evidence.get("host_organization", "")
+        or spec.configuration.get("host_organization", "")
+        or spec.configuration.get("organization", "")
+    )
+    raw.advertised_employer_raw = advertised
+    if not raw.organization_raw:
+        raw.organization_raw = advertised
+    raw.host_organization_raw = host
+    if host and spec.configuration.get("host_association_verified", False):
+        raw.host_association_verified = True
+        raw.host_association_type = raw.host_association_type or str(spec.configuration.get("host_association_type", "shared-service"))
+        raw.host_association_evidence = raw.host_association_evidence or str(
+            spec.configuration.get("host_association_evidence", "official configured host/service recruitment route")
+        )
+    if host and not raw.host_association_verified and _same_organization(advertised, host):
+        raw.host_association_verified = True
+        raw.host_association_type = raw.host_association_type or "direct"
+    raw.evidence["advertised_employer"] = advertised
+    if host:
+        raw.evidence.setdefault("host_organization", host)
+    raw.evidence["host_association_verified"] = raw.host_association_verified
+    if raw.host_association_type:
+        raw.evidence["host_association_type"] = raw.host_association_type
+    if raw.host_association_evidence:
+        raw.evidence["host_association_evidence"] = raw.host_association_evidence
+    return raw

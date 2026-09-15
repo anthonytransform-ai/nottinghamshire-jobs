@@ -5,7 +5,8 @@ from datetime import date, datetime
 from pathlib import Path
 
 from job_update.adapters.direct_council import DirectCouncilAdapter
-from job_update.adapters.itrent import ITrentAdapter
+from job_update.adapters.gedling import parse_gedling_html
+from job_update.adapters.itrent import ITrentAdapter, parse_itrent_html
 from job_update.adapters.nhs import NHSAdapter
 from job_update.adapters.nottingham_cvs import NottinghamCVSAdapter
 from job_update.adapters.ntu_jobtrain import NTUJobtrainAdapter, parse_jobtrain_html
@@ -13,13 +14,16 @@ from job_update.adapters.oracle_hcm import OracleHCMAdapter
 from job_update.adapters.tal import TALAdapter
 from job_update.adapters.teaching_vacancies import TeachingVacanciesAdapter
 from job_update.adapters.university_nottingham import UniversityNottinghamAdapter
-from job_update.classify import classify_job_area, classify_location
+from job_update.classify import classify_job_area, classify_location, load_classification_rules
+from job_update.configuration import resolution_key
 from job_update.dedupe import deduplicate
 from job_update.eligibility import evaluate
 from job_update.http_client import HttpResponse
 from job_update.models import NormalizedVacancy, RawVacancy, RunContext, SourceResult, SourceSpec, SourceStatus
 from job_update.pipeline import JobUpdatePipeline
 from job_update.registry import SourceRegistry
+from job_update.review import write_resolution
+from job_update.normalise import normalize_contract
 from job_update.timezone import london_timezone
 
 
@@ -95,6 +99,45 @@ class AdapterFixtureTests(unittest.TestCase):
         self.assertEqual(2, result.captured_total)
         self.assertEqual("Ashfield District Council", result.raw_vacancies[0].organization_raw)
 
+    def test_itrent_balances_selected_nested_card(self):
+        source = spec("ashfield", "itrent", organization="Ashfield District Council", wvid="W1", location_default="Ashfield")
+        total, records = parse_itrent_html(self.read("itrent_selected_card.html"), source, "https://example.test/ashfield")
+        self.assertEqual(1, total)
+        self.assertEqual(1, len(records))
+        self.assertEqual("A-100", records[0].source_record_id)
+        self.assertEqual("Quantity Surveyor", records[0].title_raw)
+
+    def test_itrent_requires_and_parses_actual_profile_boundary(self):
+        source = spec(
+            "college-itrent",
+            "itrent",
+            employer_type="Education",
+            organization="West Nottinghamshire College",
+            host_organization="West Nottinghamshire College",
+            host_association_verified=True,
+            detail_required=True,
+        )
+        record = RawVacancy(
+            source_id="college-itrent",
+            source_url="https://example.test/college",
+            source_record_id="A-100",
+            title_raw="((name))",
+            apply_url_raw="https://example.test/college",
+            evidence={"detail_required": True, "host_association_verified": True},
+        )
+        adapter = ITrentAdapter(source)
+        failures = adapter._enrich_details(
+            [record],
+            context(SourceRegistry([source]), FakeHttpClient({}), tempfile.mkdtemp()),
+            listing_html=self.read("itrent_profile.html"),
+        )
+        self.assertEqual(0, failures)
+        self.assertTrue(record.evidence["detail_verified"])
+        self.assertEqual("Quantity Surveyor", record.title_raw)
+        self.assertEqual("2026-09-27", record.closing_date_raw)
+        self.assertIn("Sutton in Ashfield", record.location_raw)
+        self.assertEqual("https://example.test/apply/A-100", record.apply_url_raw)
+
     def test_tal_discovers_board_and_does_not_silently_zero(self):
         source = spec("ncc", "tal", board_kind="ncc")
         client = FakeHttpClient({"example.test/ncc": self.read("tal_entry.html"), "tal.net": self.read("tal.html")})
@@ -151,6 +194,101 @@ class AdapterFixtureTests(unittest.TestCase):
         self.assertEqual(2, results[3].captured_total)
         self.assertEqual(SourceStatus.COMPLETE, results[4].status)
         self.assertEqual(2, results[5].captured_total)
+        self.assertIsNone(results[4].source_total)
+        self.assertEqual(2, results[4].reported_totals["https://teaching.test/jobs?location=nottinghamshire"])
+
+    def test_nhs_uses_actual_job_base_not_employer_address(self):
+        source = spec(
+            "nhs-location",
+            "nhs",
+            employer="Example NHS Trust",
+            search_url="https://nhs.test/search",
+            query="Example NHS Trust",
+        )
+        search = """<html><body><h1>1 jobs found</h1>
+        <article class='job-card' data-job-reference='NHS-900'><h2>Staff Nurse</h2>
+        <p>Employer: Example NHS Trust</p><a href='/jobs/NHS-900'>View job</a></article>
+        </body></html>"""
+        routes = {
+            "example.test/nhs-location": "<html><body>Trust</body></html>",
+            "nhs.test/search": search,
+            "nhs.test/jobs/NHS-900": self.read("nhs_detail_mansfield.html"),
+        }
+        result = NHSAdapter(source).fetch(context(SourceRegistry([source]), FakeHttpClient(routes), tempfile.mkdtemp()))
+        self.assertEqual(1, len(result.raw_vacancies))
+        record = result.raw_vacancies[0]
+        self.assertIn("Mansfield", record.location_raw)
+        self.assertNotIn("Headquarters", record.location_raw)
+        self.assertEqual("Mansfield", classify_location(record.location_raw)[0])
+
+    def test_gedling_generated_retrieval_id_is_not_public_reference(self):
+        records, _has_cards = parse_gedling_html(
+            """<div class='u-pull-left'><h3>Administrator</h3><p>Closing Date: 31 January 2027</p></div>""",
+            "https://gedling.test/jobs",
+            source_id="gedling",
+            organization="Gedling Borough Council",
+            location="Gedling",
+        )
+        self.assertEqual(1, len(records))
+        self.assertEqual("GEDLING-001", records[0].source_record_id)
+        self.assertEqual("", records[0].reference_raw)
+
+    def test_teaching_detail_failure_downgrades_source(self):
+        source = spec("teaching-failure", "teaching_vacancies", queries=["https://teaching.test/jobs?location=nottinghamshire"])
+        page = self.read("teaching_page.html")
+
+        class SearchOnly(FakeHttpClient):
+            def get(self, url, **kwargs):
+                if "teaching.test/jobs?" in url:
+                    return HttpResponse(url=url, status_code=200, text=page)
+                return HttpResponse(url=url, status_code=404, error="detail fixture deliberately unavailable")
+
+        result = TeachingVacanciesAdapter(source).fetch(context(SourceRegistry([source]), SearchOnly({}), tempfile.mkdtemp()))
+        self.assertEqual(SourceStatus.PARTIALLY_VERIFIED, result.status)
+        self.assertTrue(any("detail" in warning.casefold() for warning in result.warnings))
+
+    def test_teaching_structured_detail_uses_jobposting_boundary(self):
+        source = spec("teaching-detail", "teaching_vacancies", employer_type="Education", queries=["https://teaching.test/jobs?location=nottinghamshire"])
+        record = RawVacancy(
+            source_id="teaching-detail",
+            source_url="https://teaching.test/jobs?location=nottinghamshire",
+            source_record_id="class-teacher",
+            title_raw="Class Teacher",
+            apply_url_raw="https://teaching.test/jobs/class-teacher",
+            evidence={"detail_required": True},
+        )
+        client = FakeHttpClient({"teaching.test/jobs/class-teacher": self.read("teaching_jobposting_detail.html")})
+        adapter = TeachingVacanciesAdapter(source)
+        failures = adapter._enrich_details([record], context(SourceRegistry([source]), client, tempfile.mkdtemp()))
+        self.assertEqual(0, failures)
+        self.assertTrue(record.evidence["detail_verified"])
+        self.assertEqual("Bilsthorpe Flying High Academy", record.advertised_employer_raw)
+        self.assertIn("Newark", record.location_raw)
+        self.assertNotIn("Unrelated similar jobs", record.location_raw)
+        self.assertEqual("2026-09-17", record.closing_date_raw)
+        self.assertEqual("09:00", record.closing_time_raw)
+
+    def test_nottingham_college_current_route_enumerates_and_details_records(self):
+        source = spec(
+            "nottingham-college",
+            "direct_council",
+            employer_type="Education",
+            organization="Nottingham College",
+            detail_links=True,
+            detail_required=True,
+            job_link_pattern=r"current-vacancies/[^/]+$",
+            card_class="shadow-course-card",
+        )
+        routes = {
+            "example.test/nottingham-college": self.read("nottingham_college.html"),
+            "example.test/about-us/working-for-us/current-vacancies/": self.read("college_group_detail.html"),
+        }
+        result = DirectCouncilAdapter(source).fetch(context(SourceRegistry([source]), FakeHttpClient(routes), tempfile.mkdtemp()))
+        self.assertEqual(2, result.captured_total)
+        self.assertIsNone(result.source_total)
+        self.assertTrue(all(item.evidence.get("detail_verified") for item in result.raw_vacancies))
+        self.assertTrue(all(item.reference_raw == "" for item in result.raw_vacancies))
+        self.assertEqual(["City Hub, Nottingham", "Mansfield"], [item.location_raw for item in result.raw_vacancies])
 
     def test_ntu_dynamic_nested_cards_are_parsed_without_page_container_false_positive(self):
         total, records = parse_jobtrain_html(
@@ -191,7 +329,7 @@ class PolicyTests(unittest.TestCase):
             setattr(value, key, update)
         return value
 
-    def test_inclusive_window_and_same_day_time(self):
+    def test_fixed_deadline_and_same_day_time(self):
         update_date = date(2026, 9, 14)
         decision = evaluate(
             self.raw(),
@@ -210,9 +348,9 @@ class PolicyTests(unittest.TestCase):
             now=datetime(2026, 9, 14, 10, 0, tzinfo=london_timezone()),
         )
         self.assertFalse(expired_today.included)
-        self.assertFalse(
+        self.assertTrue(
             evaluate(
-                self.raw(closing_date_raw="2026-11-10"),
+                self.raw(closing_date_raw="2027-01-31"),
                 update_date=update_date,
                 employer_type="Council",
                 location_area="Nottingham",
@@ -220,17 +358,80 @@ class PolicyTests(unittest.TestCase):
             ).included
         )
 
+    def test_paid_volunteer_role_is_not_misclassified_as_unpaid(self):
+        decision = evaluate(
+            self.raw(title_raw="Volunteer Coordinator", description_raw="Paid role coordinating volunteers."),
+            update_date=date(2026, 9, 14),
+            employer_type="VCSE",
+            location_area="Nottingham",
+            job_area="Community & Outreach",
+        )
+        self.assertTrue(decision.included)
+        unpaid = evaluate(
+            self.raw(title_raw="Volunteer", description_raw="Unpaid volunteering opportunity."),
+            update_date=date(2026, 9, 14),
+            employer_type="VCSE",
+            location_area="Nottingham",
+            job_area="Community & Outreach",
+        )
+        self.assertFalse(unpaid.included)
+
+    def test_education_host_and_private_agency_policy(self):
+        contractor = self.raw(
+            organization_raw="Recruitment Partner",
+            advertised_employer_raw="Recruitment Partner",
+            host_organization_raw="Nottingham College",
+            host_association_verified=True,
+            host_association_type="agency",
+            host_association_evidence="college named in advert",
+        )
+        self.assertTrue(
+            evaluate(
+                contractor,
+                update_date=date(2026, 9, 14),
+                employer_type="Education",
+                location_area="Nottingham",
+                job_area="Other",
+            ).included
+        )
+        private = self.raw()
+        private.evidence["private"] = True
+        self.assertFalse(
+            evaluate(
+                private,
+                update_date=date(2026, 9, 14),
+                employer_type="Education",
+                location_area="Nottingham",
+                job_area="Other",
+            ).included
+        )
+        generic = self.raw(organization_raw="Unknown Recruitment Agency", advertised_employer_raw="Unknown Recruitment Agency")
+        generic.evidence["agency"] = True
+        self.assertFalse(
+            evaluate(
+                generic,
+                update_date=date(2026, 9, 14),
+                employer_type="Education",
+                location_area="Nottingham",
+                job_area="Other",
+            ).included
+        )
+
+    def test_term_time_only_is_not_fixed_term(self):
+        self.assertEqual("Other", normalize_contract("Term Time Only"))
+        self.assertEqual("Fixed-term", normalize_contract("Fixed Term until 31 August 2027"))
+
 
 class ConsolidationTests(unittest.TestCase):
-    def vacancy(self, source_id, method, reference="R-1"):
+    def vacancy(self, source_id, method, reference="R-1", *, organization="Example Council", title="Administrator", location="Nottingham", closing_date="2026-09-30", host="", host_verified=False):
         return NormalizedVacancy(
-            organization="Example Council",
+            organization=organization,
             employer_type="Council",
-            job_title="Administrator",
+            job_title=title,
             job_area="Administration & Business Support",
-            location="Nottingham",
+            location=location,
             location_area="Nottingham",
-            closing_date="2026-09-30",
+            closing_date=closing_date,
             closing_time="",
             contract_type="Permanent",
             work_pattern="Full-time",
@@ -241,6 +442,9 @@ class ConsolidationTests(unittest.TestCase):
             source_url=f"https://example.test/{source_id}",
             source_id=source_id,
             verification_method=method,
+            advertised_employer=organization,
+            host_organization=host,
+            host_association_verified=host_verified,
         )
 
     def test_dedupe_prefers_direct_primary_advert(self):
@@ -251,6 +455,29 @@ class ConsolidationTests(unittest.TestCase):
         self.assertEqual(1, len(selected))
         self.assertEqual("council", selected[0].source_id)
         self.assertEqual(1, len(duplicates))
+
+    def test_dedupe_fallback_ignores_different_urls_and_keeps_real_references(self):
+        mirror_a = self.vacancy("teaching", "primary-platform-listing", reference="")
+        mirror_b = self.vacancy("trust", "direct-primary-advert", reference="")
+        selected, duplicates = deduplicate([mirror_a, mirror_b])
+        self.assertEqual(1, len(selected))
+        self.assertEqual("trust", selected[0].source_id)
+        self.assertEqual(1, len(duplicates))
+
+        distinct_ref = self.vacancy("other", "direct-primary-advert", reference="R-2")
+        selected, _duplicates = deduplicate([self.vacancy("one", "direct-primary-advert", reference="R-1"), distinct_ref])
+        self.assertEqual(2, len(selected))
+
+        distinct_location = self.vacancy("other-location", "direct-primary-advert", reference="", location="Mansfield")
+        selected, _duplicates = deduplicate([mirror_a, distinct_location])
+        self.assertEqual(2, len(selected))
+
+    def test_host_scope_prevents_unrelated_contractor_collapse(self):
+        first = self.vacancy("college", "direct-primary-advert", reference="", organization="Agency A", host="Nottingham College", host_verified=True)
+        second = self.vacancy("nhs", "direct-primary-advert", reference="", organization="Agency A", host="Example NHS Trust", host_verified=True)
+        selected, duplicates = deduplicate([first, second])
+        self.assertEqual(2, len(selected))
+        self.assertEqual([], duplicates)
 
     def test_pipeline_writes_audit_review_and_validator_candidate(self):
         first = spec("one", "direct_council", organization="Example Council")
@@ -284,11 +511,45 @@ class ConsolidationTests(unittest.TestCase):
             self.assertEqual(2, len(audit))
             self.assertEqual("Complete", audit[0]["status"])
 
+    def test_review_resolution_rebuilds_without_refetch(self):
+        source = spec("review-source", "direct_council", organization="Example Council")
+        registry = SourceRegistry([source])
+        raw = RawVacancy(
+            source_id="review-source",
+            source_url="https://example.test/review",
+            source_record_id="INTERNAL-1",
+            organization_raw="Example Council",
+            title_raw="Officer",
+            location_raw="Hybrid",
+            closing_date_raw="2027-01-31",
+            apply_url_raw="https://example.test/job/1",
+            description_raw="Council role",
+        )
+        results = [SourceResult("review-source", "review-source", True, "fixture", None, 1, [raw], status=SourceStatus.COMPLETE)]
+        with tempfile.TemporaryDirectory() as temp:
+            run_dir = Path(temp)
+            pipeline = JobUpdatePipeline(context(registry, FakeHttpClient({}), run_dir))
+            first = pipeline.build(results)
+            self.assertEqual(0, first["row_count"])
+            key = json.loads((run_dir / "review_queue.json").read_text())[0]["resolution_key"]
+            write_resolution(run_dir / "review_resolutions.toml", key=key, field="location_area", value="Nottingham")
+            write_resolution(run_dir / "review_resolutions.toml", key=key, field="job_area", value="Administration & Business Support")
+            second = pipeline.build([SourceResult.from_dict(item) for item in json.loads(json.dumps([results[0].to_dict()]))])
+            self.assertEqual(1, second["row_count"])
+
+    def test_classification_rules_file_is_runtime_configuration(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "rules.toml"
+            path.write_text('[location]\nnottingham = ["madeup campus"]\n', encoding="utf-8")
+            rules = load_classification_rules(path)
+            self.assertEqual("Nottingham", classify_location("Madeup Campus", rules=rules)[0])
+
 
 class RegistryTests(unittest.TestCase):
     def test_pack_registry_has_all_mandatory_families(self):
         registry = SourceRegistry.load()
-        self.assertEqual(29, len(registry.mandatory))
+        self.assertEqual(32, len(registry.mandatory))
+        self.assertTrue({"nottingham-college", "west-nottinghamshire-college", "north-notts-rnn"}.issubset({source.source_id for source in registry.mandatory}))
         adapters = {source.adapter for source in registry.mandatory}
         self.assertTrue({"oracle_hcm", "tal", "itrent", "nhs", "university_nottingham", "ntu_jobtrain", "teaching_vacancies", "academy_trust", "nottingham_cvs"}.issubset(adapters))
 

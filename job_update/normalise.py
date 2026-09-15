@@ -2,15 +2,24 @@
 
 from __future__ import annotations
 
+import re
+
 from .models import NormalizedVacancy, RawVacancy, SourceSpec
 
 
 def canonical_organization(raw: RawVacancy, spec: SourceSpec) -> str:
     configured = str(spec.configuration.get("organization", "")).strip()
-    discovered = raw.organization_raw.strip()
-    if configured and not spec.configuration.get("allow_organization_from_advert", False):
-        return configured
-    return discovered or configured or spec.display_name.split(" — ", 1)[0].strip()
+    advertised = (raw.advertised_employer_raw or raw.organization_raw).strip()
+    host = (raw.host_organization_raw or configured).strip()
+    if advertised and (not host or raw.host_association_verified or _same_organization(advertised, host)):
+        return advertised
+    return host or advertised or spec.display_name.split(" — ", 1)[0].strip()
+
+
+def _same_organization(left: str, right: str) -> bool:
+    left_value = " ".join(left.casefold().replace("&", "and").split())
+    right_value = " ".join(right.casefold().replace("&", "and").split())
+    return bool(left_value and right_value and (left_value == right_value or left_value in right_value or right_value in left_value))
 
 
 def normalize_contract(value: str) -> str:
@@ -19,7 +28,7 @@ def normalize_contract(value: str) -> str:
         return "Apprenticeship"
     if "permanent" in text or "ongoing" in text:
         return "Permanent"
-    if "fixed" in text or "term" in text:
+    if re.search(r"\bfixed[\s-]+term\b|\bfixed[\s-]+until\b", text):
         return "Fixed-term"
     if "temporary" in text or "temp " in text:
         return "Temporary"
@@ -67,10 +76,16 @@ def normalized_vacancy(
         work_pattern=normalize_work_pattern(raw.work_pattern_raw),
         salary=" ".join(raw.salary_raw.split()),
         apply_url=raw.apply_url_raw.strip(),
-        job_reference=(raw.reference_raw or raw.source_record_id).strip(),
+        job_reference=raw.reference_raw.strip(),
         date_checked=date_checked,
         source_url=raw.source_url.strip(),
         source_id=raw.source_id,
         verification_method=verification_method,
         evidence=raw.evidence,
+        source_record_id=raw.source_record_id,
+        advertised_employer=(raw.advertised_employer_raw or raw.organization_raw).strip(),
+        host_organization=raw.host_organization_raw.strip(),
+        host_association_verified=raw.host_association_verified,
+        host_association_type=raw.host_association_type,
+        host_association_evidence=raw.host_association_evidence,
     )

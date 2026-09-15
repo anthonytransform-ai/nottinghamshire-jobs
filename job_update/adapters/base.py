@@ -7,6 +7,7 @@ from typing import Protocol
 
 from ..models import RawVacancy, RunContext, SourceResult, SourceSpec, SourceStatus
 from ..timezone import london_now
+from .common import prepare_source_metadata
 
 
 class SourceAdapter(Protocol):
@@ -37,13 +38,29 @@ class BaseAdapter:
         exclusions: list[dict[str, str]] | None = None,
     ) -> SourceResult:
         records = raw or []
+        for record in records:
+            prepare_source_metadata(record, self.spec)
+            if (
+                not record.location_raw
+                and self.spec.configuration.get("location_default")
+                and self.spec.configuration.get("location_default_verified", False)
+            ):
+                record.location_raw = str(self.spec.configuration["location_default"])
+                record.evidence["location_default_applied"] = True
+        unique_keys = {
+            record.source_record_id
+            or record.reference_raw
+            or record.apply_url_raw
+            or f"{record.title_raw}|{record.location_raw}|{record.closing_date_raw}"
+            for record in records
+        }
         return SourceResult(
             source_id=self.spec.source_id,
             source_name=self.spec.display_name,
             mandatory=self.spec.mandatory,
             retrieval_method=method,
             source_total=source_total,
-            captured_total=len({record.source_record_id or record.apply_url_raw for record in records}),
+            captured_total=len(unique_keys),
             raw_vacancies=records,
             status=status,
             warnings=warnings or [],

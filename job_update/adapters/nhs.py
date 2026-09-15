@@ -15,7 +15,7 @@ class NHSAdapter(BaseAdapter):
     def fetch(self, context: RunContext):
         config = self.spec.configuration
         entry_url = self.spec.official_entry_url
-        entry = context.http_client.get(entry_url, use_cache=False)
+        entry = context.http_client.get(entry_url, use_cache=True)
         warnings: list[str] = []
         if not entry.ok:
             warnings.append("official trust entry page was unavailable; underlying NHS search was attempted")
@@ -28,7 +28,7 @@ class NHSAdapter(BaseAdapter):
         if not isinstance(search_params, dict):
             search_params = {}
         first_url = self._page_url(search_url, query, 1, search_params)
-        response = context.http_client.get(first_url, use_cache=False)
+        response = context.http_client.get(first_url, use_cache=True)
         method = "direct-http"
         if (not response.ok or self._needs_browser(response.text, response.status_code)) and context.allow_browser:
             rendered = context.browser.render(first_url, wait_ms=2_000)
@@ -54,7 +54,7 @@ class NHSAdapter(BaseAdapter):
             if next_url in seen_pages:
                 break
             seen_pages.add(next_url)
-            page = context.http_client.get(next_url, use_cache=False)
+            page = context.http_client.get(next_url, use_cache=True)
             if not page.ok:
                 warnings.append(f"NHS pagination page failed: {next_url}")
                 break
@@ -115,7 +115,7 @@ class NHSAdapter(BaseAdapter):
     def _parse(self, html: str, source_url: str, config: dict):
         records = []
         default_org = str(config.get("employer", self.spec.display_name))
-        expected_employer = default_org.casefold()
+        expected_employer = str(config.get("employer", "")).casefold()
         seen: set[str] = set()
         blocks = self._result_blocks(html)
         if not blocks:
@@ -137,12 +137,12 @@ class NHSAdapter(BaseAdapter):
             employer = self._card_employer(body) or labelled_value(text, ("Employer", "Organisation", "Trust")) or default_org
             location = first_attr(attrs, ("data-location",)) or self._card_location(body) or labelled_value(text, ("Location", "Base", "Site")) or self._infer_location(text)
             deadline, closing_time = extract_deadline(text)
-            reference = first_attr(attrs, ("data-job-reference", "data-reference")) or record_id
+            reference = first_attr(attrs, ("data-job-reference", "data-reference"))
             records.append(
                 make_raw(
                     source_id=self.spec.source_id,
                     source_url=source_url,
-                    record_id=record_id or reference,
+                    record_id=record_id,
                     title=title,
                     organization=employer,
                     location=location,
@@ -156,7 +156,10 @@ class NHSAdapter(BaseAdapter):
                     description=text,
                     evidence={
                         "configured_employer": default_org,
-                        "employer_mismatch": bool(expected_employer and expected_employer not in text.casefold()),
+                        "agency": bool(re.search(r"\b(?:agency|recruitment agency|locum agency)\b", text, re.I)),
+                        "detail_required": True,
+                        "out_of_scope_employer": bool(expected_employer and not self._employer_matches(expected_employer, employer)),
+                        "not_nhs_employer": bool(config.get("narrow_to_nhs") and not self._looks_like_nhs_service(employer)),
                     },
                 )
             )
@@ -221,7 +224,7 @@ class NHSAdapter(BaseAdapter):
         for record in records:
             if not record.apply_url_raw or record.apply_url_raw == record.source_url:
                 continue
-            response = context.http_client.get(record.apply_url_raw, use_cache=False)
+            response = context.http_client.get(record.apply_url_raw, use_cache=True)
             if not response.ok:
                 failures += 1
                 record.evidence["detail_fetch_error"] = response.error or f"HTTP {response.status_code}"
@@ -236,22 +239,29 @@ class NHSAdapter(BaseAdapter):
                 record.closing_time_raw = closing_time
             employer = element_text_by_id(html, "employer_name")
             if employer:
+                actual_matches = self._employer_matches(expected, employer)
                 record.organization_raw = employer
-                record.evidence["employer_verified"] = self._employer_matches(expected, employer)
-            location_parts = [
-                element_text_by_id(html, element_id)
-                for element_id in (
-                    "employer_address_line_1",
-                    "employer_address_line_2",
-                    "employer_town",
-                    "employer_county",
-                    "employer_postcode",
-                    "employer_country",
-                )
-            ]
-            location = " ".join(part for part in location_parts if part).strip()
-            if not location:
-                location = labelled_html_value(html, ("Job locations", "Location"))
+                record.advertised_employer_raw = employer
+                record.evidence["employer_verified"] = actual_matches
+                record.evidence["employer_mismatch"] = not actual_matches
+                record.evidence["out_of_scope_employer"] = bool(expected and not actual_matches)
+                if actual_matches:
+                    record.host_organization_raw = expected
+                    record.host_association_verified = True
+                    record.host_association_type = "direct"
+                    record.host_association_evidence = "NHS advert employer_name matches configured trust"
+                elif self._host_is_named(text, expected):
+                    record.host_organization_raw = expected
+                    record.host_association_verified = True
+                    record.host_association_type = "agency" if record.evidence.get("agency") else "subcontractor"
+                    record.host_association_evidence = "NHS advert detail names the configured trust as host/service"
+                else:
+                    record.host_organization_raw = expected
+                    record.host_association_evidence = "NHS advert employer differs and configured trust is not named in detail"
+            # Never use employer/contact/HQ address as the job base.  The NHS
+            # detail page has separate job-location labels on some templates;
+            # if those are absent, retain only the search-card location.
+            location = self._actual_job_location(html)
             if location:
                 record.location_raw = location
             record.salary_raw = record.salary_raw or element_text_by_id(html, "range_salary")
@@ -261,9 +271,45 @@ class NHSAdapter(BaseAdapter):
             if reference:
                 record.reference_raw = reference
             lowered = text.casefold()
-            record.evidence["withdrawn"] = "vacancy withdrawn" in lowered or "no longer accepting applications" in lowered
+            record.evidence.update(
+                {
+                    "withdrawn": "vacancy withdrawn" in lowered or "no longer accepting applications" in lowered,
+                    "detail_verified": True,
+                    "generic_agency": bool(record.evidence.get("agency") and not record.host_association_verified),
+                    "not_nhs_employer": bool(config.get("narrow_to_nhs") and not self._looks_like_nhs_service(employer)),
+                }
+            )
             record.description_raw = f"{record.description_raw} {text}".strip()
         return failures
+
+    @staticmethod
+    def _host_is_named(text: str, expected: str) -> bool:
+        return bool(expected and " ".join(expected.casefold().split()) in " ".join(text.casefold().split()))
+
+    @staticmethod
+    def _looks_like_nhs_service(employer: str) -> bool:
+        lowered = employer.casefold()
+        return any(marker in lowered for marker in ("nhs", "national health", "trust", "medical practice", "health centre", "healthcare partnership"))
+
+    @staticmethod
+    def _actual_job_location(html: str) -> str:
+        for labels in (
+            ("Job locations", "Job location", "Work location", "Working location", "Base", "Site"),
+            ("Location",),
+        ):
+            value = labelled_html_value(html, labels)
+            if value and "employer address" not in value.casefold():
+                return value
+        for match in re.finditer(
+            r"<[^>]+\bid\s*=\s*['\"](?P<id>(?:job[_-]?location|work[_-]?location|location)[^'\"]*)['\"][^>]*>(?P<body>.*?)</[^>]+>",
+            html or "",
+            re.I | re.S,
+        ):
+            if "employer" not in match.group("id").casefold():
+                value = clean_text(match.group("body"))
+                if value:
+                    return value
+        return ""
 
     @staticmethod
     def _needs_browser(text: str, status_code: int | None) -> bool:

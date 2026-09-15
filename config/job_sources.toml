@@ -27,7 +27,7 @@ employer_type = "Council"
 mandatory = true
 adapter = "direct_council"
 official_entry_url = "https://www.broxtowe.gov.uk/for-you/jobs/current-vacancies/"
-configuration = { organization = "Broxtowe Borough Council", location_default = "Broxtowe", detail_links = true, job_link_pattern = "current-vacancies/[^/]+/?$" }
+configuration = { organization = "Broxtowe Borough Council", location_default = "Broxtowe", location_default_verified = true, detail_links = true, job_link_pattern = "current-vacancies/[^/]+/?$" }
 
 [[sources]]
 source_id = "ashfield-itrent"
@@ -36,7 +36,7 @@ employer_type = "Council"
 mandatory = true
 adapter = "itrent"
 official_entry_url = "https://ce0930li.webitrent.com/ce0930li_webrecruitment/wrd/run/ETREC179GF.open?WVID=6777852QI7"
-configuration = { organization = "Ashfield District Council", wvid = "6777852QI7", location_default = "Ashfield" }
+configuration = { organization = "Ashfield District Council", wvid = "6777852QI7", location_default = "Ashfield", location_default_verified = true }
 
 [[sources]]
 source_id = "bassetlaw-itrent"
@@ -45,7 +45,7 @@ employer_type = "Council"
 mandatory = true
 adapter = "itrent"
 official_entry_url = "https://careers.bassetlaw.gov.uk/"
-configuration = { portal_url = "https://ce0017li.webitrent.com/ce0017li_webrecruitment/wrd/run/ETREC179GF.open?WVID=8070960wxx", organization = "Bassetlaw District Council", wvid = "8070960wxx", location_default = "Bassetlaw" }
+configuration = { portal_url = "https://ce0017li.webitrent.com/ce0017li_webrecruitment/wrd/run/ETREC179GF.open?WVID=8070960wxx", organization = "Bassetlaw District Council", wvid = "8070960wxx", location_default = "Bassetlaw", location_default_verified = true }
 
 [[sources]]
 source_id = "gedling-direct"
@@ -54,7 +54,7 @@ employer_type = "Council"
 mandatory = true
 adapter = "gedling"
 official_entry_url = "https://apps.gedling.gov.uk/jobs/default.aspx"
-configuration = { organization = "Gedling Borough Council", location_default = "Gedling", detail_links = true }
+configuration = { organization = "Gedling Borough Council", location_default = "Gedling", location_default_verified = true, detail_links = true }
 
 [[sources]]
 source_id = "mansfield-itrent"
@@ -63,7 +63,7 @@ employer_type = "Council"
 mandatory = true
 adapter = "itrent"
 official_entry_url = "https://ce0930li.webitrent.com/ce0930li_webrecruitment/wrd/run/ETREC179GF.open?WVID=4128782IuI"
-configuration = { organization = "Mansfield District Council", wvid = "4128782IuI", location_default = "Mansfield" }
+configuration = { organization = "Mansfield District Council", wvid = "4128782IuI", location_default = "Mansfield", location_default_verified = true }
 
 [[sources]]
 source_id = "newark-sherwood-itrent"
@@ -72,7 +72,7 @@ employer_type = "Council"
 mandatory = true
 adapter = "itrent"
 official_entry_url = "https://ce0799li.webitrent.com/ce0799li_webrecruitment/wrd/run/ETREC179GF.open?WVID=3373962BPM"
-configuration = { organization = "Newark & Sherwood District Council", wvid = "3373962BPM", location_default = "Newark & Sherwood" }
+configuration = { organization = "Newark & Sherwood District Council", wvid = "3373962BPM", location_default = "Newark & Sherwood", location_default_verified = true }
 
 [[sources]]
 source_id = "rushcliffe-direct"
@@ -81,7 +81,7 @@ employer_type = "Council"
 mandatory = true
 adapter = "direct_council"
 official_entry_url = "https://www.rushcliffe.gov.uk/about-us/working-for-rbc/jobs/"
-configuration = { organization = "Rushcliffe Borough Council", location_default = "Rushcliffe", detail_links = true }
+configuration = { organization = "Rushcliffe Borough Council", location_default = "Rushcliffe", location_default_verified = true, detail_links = true }
 
 [[sources]]
 source_id = "nuh-nhs"
@@ -129,6 +129,33 @@ official_entry_url = "https://vacancies.ntu.ac.uk/"
 configuration = { organization = "Nottingham Trent University", location_default = "Nottingham", use_browser = true, browser_wait_for = ".job-card", browser_load_more_selector = "#searchResultsLoadMoreBtn" }
 
 [[sources]]
+source_id = "nottingham-college"
+display_name = "Nottingham College — current vacancies"
+employer_type = "Education"
+mandatory = true
+adapter = "direct_council"
+official_entry_url = "https://www.nottinghamcollege.ac.uk/about-us/working-for-us/current-vacancies"
+configuration = { organization = "Nottingham College", detail_links = true, detail_required = true, job_link_pattern = "about-us/working-for-us/current-vacancies/[^/]+$", card_class = "shadow-course-card", browser_wait_for = "#job-vacancies-listing", browser_wait_ms = 5000 }
+
+[[sources]]
+source_id = "west-nottinghamshire-college"
+display_name = "West Nottinghamshire College — current vacancies"
+employer_type = "Education"
+mandatory = true
+adapter = "itrent"
+official_entry_url = "https://www.wnc.ac.uk/about-us/work-for-us"
+configuration = { portal_url = "https://vacancies.wnc.ac.uk/ce0999li_webrecruitment/wrd/run/etrec179gf.open?wvid=5245470Prv", organization = "West Nottinghamshire College", host_organization = "West Nottinghamshire College", host_association_verified = true, host_association_type = "direct", host_association_evidence = "official West Nottinghamshire College iTrent recruitment portal", wvid = "5245470Prv", detail_required = true }
+
+[[sources]]
+source_id = "north-notts-rnn"
+display_name = "North Notts College / RNN Group — current vacancies"
+employer_type = "Education"
+mandatory = true
+adapter = "itrent"
+official_entry_url = "https://www.rnngroup.co.uk/working-with-us-for-everyone/"
+configuration = { portal_url = "https://ce0833li.webitrent.com/ce0833li_webrecruitment/wrd/run/ETREC179GF.open?WVID=8759023jQy", organization = "RNN Group", host_organization = "RNN Group", host_association_verified = true, host_association_type = "direct", host_association_evidence = "official RNN Group iTrent recruitment portal", wvid = "8759023jQy", detail_required = true }
+
+[[sources]]
 source_id = "teaching-vacancies"
 display_name = "GOV.UK Teaching Vacancies — Nottinghamshire and Nottingham searches"
 employer_type = "Education"
@@ -162,7 +189,7 @@ employer_type = "Education"
 mandatory = true
 adapter = "academy_trust"
 official_entry_url = "https://www.archwaytrust.co.uk/vacancies/"
-configuration = { organization = "Archway Learning Trust" }
+configuration = { organization = "Archway Learning Trust", host_organization = "Archway Learning Trust", host_association_verified = true, host_association_type = "shared-service" }
 
 [[sources]]
 source_id = "tapestry-learning-partnership"
@@ -171,7 +198,7 @@ employer_type = "Education"
 mandatory = true
 adapter = "academy_trust"
 official_entry_url = "https://tapestrylearningpartnership.org/job-vacancies"
-configuration = { organization = "Tapestry Learning Partnership" }
+configuration = { organization = "Tapestry Learning Partnership", host_organization = "Tapestry Learning Partnership", host_association_verified = true, host_association_type = "shared-service" }
 
 [[sources]]
 source_id = "greenwood-academies"
@@ -180,7 +207,7 @@ employer_type = "Education"
 mandatory = true
 adapter = "academy_trust"
 official_entry_url = "https://www.greenwoodacademies.org/vacancies"
-configuration = { organization = "Greenwood Academies Trust" }
+configuration = { organization = "Greenwood Academies Trust", host_organization = "Greenwood Academies Trust", host_association_verified = true, host_association_type = "shared-service" }
 
 [[sources]]
 source_id = "redhill-academy-trust"
@@ -189,7 +216,7 @@ employer_type = "Education"
 mandatory = true
 adapter = "academy_trust"
 official_entry_url = "https://www.redhillacademytrust.org.uk/vacancies"
-configuration = { organization = "The Redhill Academy Trust" }
+configuration = { organization = "The Redhill Academy Trust", host_organization = "The Redhill Academy Trust", host_association_verified = true, host_association_type = "shared-service" }
 
 [[sources]]
 source_id = "spencer-academies"
@@ -198,7 +225,7 @@ employer_type = "Education"
 mandatory = true
 adapter = "academy_trust"
 official_entry_url = "https://www.spencertrust.org.uk/work-with-us"
-configuration = { organization = "The Spencer Academies Trust", job_link_pattern = "page/\\?title=Job\\+Title", detail_links = true }
+configuration = { organization = "The Spencer Academies Trust", host_organization = "The Spencer Academies Trust", host_association_verified = true, host_association_type = "shared-service", job_link_pattern = "page/\\?title=Job\\+Title", detail_links = true }
 
 [[sources]]
 source_id = "diverse-academies"
@@ -207,7 +234,7 @@ employer_type = "Education"
 mandatory = true
 adapter = "academy_trust"
 official_entry_url = "https://www.diverseacademies.org.uk/job-vacancies/"
-configuration = { organization = "Diverse Academies Trust" }
+configuration = { organization = "Diverse Academies Trust", host_organization = "Diverse Academies Trust", host_association_verified = true, host_association_type = "shared-service" }
 
 [[sources]]
 source_id = "flying-high-partnership"
@@ -216,7 +243,7 @@ employer_type = "Education"
 mandatory = true
 adapter = "academy_trust"
 official_entry_url = "https://www.flyinghighpartnership.co.uk/"
-configuration = { organization = "Flying High Partnership" }
+configuration = { organization = "Flying High Partnership", host_organization = "Flying High Partnership", host_association_verified = true, host_association_type = "shared-service" }
 
 [[sources]]
 source_id = "minster-trust"
@@ -225,7 +252,7 @@ employer_type = "Education"
 mandatory = true
 adapter = "academy_trust"
 official_entry_url = "https://www.mitretrust.org.uk/careers"
-configuration = { organization = "Minster Trust for Education" }
+configuration = { organization = "Minster Trust for Education", host_organization = "Minster Trust for Education", host_association_verified = true, host_association_type = "shared-service" }
 
 [[sources]]
 source_id = "nova-education-trust"
@@ -234,7 +261,7 @@ employer_type = "Education"
 mandatory = true
 adapter = "academy_trust"
 official_entry_url = "https://www.novaeducationtrust.net/"
-configuration = { organization = "Nova Education Trust" }
+configuration = { organization = "Nova Education Trust", host_organization = "Nova Education Trust", host_association_verified = true, host_association_type = "shared-service" }
 
 [[sources]]
 source_id = "diocese-southwell-nottingham-mat"
@@ -243,7 +270,7 @@ employer_type = "Education"
 mandatory = true
 adapter = "academy_trust"
 official_entry_url = "https://www.snmat.org.uk/"
-configuration = { organization = "Diocese of Southwell and Nottingham Multi Academy Trust" }
+configuration = { organization = "Diocese of Southwell and Nottingham Multi Academy Trust", host_organization = "Diocese of Southwell and Nottingham Multi Academy Trust", host_association_verified = true, host_association_type = "shared-service" }
 
 [[sources]]
 source_id = "east-midlands-education-trust"
@@ -252,7 +279,7 @@ employer_type = "Education"
 mandatory = true
 adapter = "academy_trust"
 official_entry_url = "https://www.emet.academy/vacancies"
-configuration = { organization = "East Midlands Education Trust" }
+configuration = { organization = "East Midlands Education Trust", host_organization = "East Midlands Education Trust", host_association_verified = true, host_association_type = "shared-service" }
 
 [[sources]]
 source_id = "nottingham-cvs"
@@ -270,4 +297,4 @@ employer_type = "NHS"
 mandatory = false
 adapter = "nhs"
 official_entry_url = "https://www.jobs.nhs.uk/candidate/search/results"
-configuration = { employer = "", search_url = "https://www.jobs.nhs.uk/candidate/search/results", query = "Nottinghamshire NHS", search_params = { location = "Nottinghamshire" }, location_default = "Nottinghamshire" }
+configuration = { employer = "", search_url = "https://www.jobs.nhs.uk/candidate/search/results", query = "Nottinghamshire NHS", search_params = { location = "Nottinghamshire" }, location_default = "Nottinghamshire", narrow_to_nhs = true }

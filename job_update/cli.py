@@ -12,6 +12,7 @@ from .http_client import HttpClient
 from .models import RunContext
 from .pipeline import JobUpdatePipeline, PipelineError
 from .registry import DEFAULT_REGISTRY_PATH, SourceRegistry
+from .review import write_resolution, write_resolution_template
 from .timezone import london_now
 
 
@@ -29,7 +30,7 @@ def build_parser() -> argparse.ArgumentParser:
     for name, help_text in (
         ("fetch", "fetch all sources and write raw/audit artefacts"),
         ("run", "fetch, build, validate and write a PR-ready shadow candidate"),
-        ("doctor", "run source diagnostics; use --live for real public retrieval"),
+        ("doctor", "run local source diagnostics; use --live for real public retrieval"),
     ):
         command = sub.add_parser(name, help=help_text)
         command.add_argument("--date", dest="date_checked", default=None, help="Europe/London update date (YYYY-MM-DD)")
@@ -46,6 +47,22 @@ def build_parser() -> argparse.ArgumentParser:
 
     audit = sub.add_parser("audit", help="print a saved source audit")
     audit.add_argument("--date", dest="date_checked", required=True, help="run date")
+
+    review = sub.add_parser("review", help="inspect or resolve the run-local review queue")
+    review.add_argument("--date", dest="date_checked", required=True, help="run date")
+    review.add_argument("--write-template", action="store_true", help="write review_resolutions.toml template")
+    review.add_argument("--key", help="stable resolution key from review_queue.json")
+    review.add_argument("--field", choices=(
+        "location_area",
+        "job_area",
+        "advertised_employer",
+        "host_organization",
+        "host_association_verified",
+        "host_association_type",
+        "host_association_evidence",
+        "policy",
+    ))
+    review.add_argument("--value", help="reviewed value for --field")
 
     validate = sub.add_parser("validate", help="run the existing whole-file CSV validator")
     validate.add_argument("csv_path", type=Path)
@@ -109,6 +126,33 @@ def main(argv: list[str] | None = None) -> int:
                 raise PipelineError(f"source audit not found: {path}")
             print(path.read_text(encoding="utf-8"))
             return 0
+        if args.command == "review":
+            run_dir = RUNS_ROOT / args.date_checked
+            queue_path = run_dir / "review_queue.json"
+            if not queue_path.exists():
+                raise PipelineError(f"review queue not found: {queue_path}")
+            queue = json.loads(queue_path.read_text(encoding="utf-8"))
+            if args.write_template:
+                from .models import ReviewItem
+
+                items = [ReviewItem(**item) for item in queue]
+                write_resolution_template(items, run_dir / "review_resolutions.toml")
+            if any(value is not None for value in (args.key, args.field, args.value)):
+                if not (args.key and args.field and args.value is not None):
+                    raise PipelineError("--key, --field and --value must be supplied together")
+                value = args.value
+                if args.field == "host_association_verified":
+                    if value.casefold() not in {"true", "false"}:
+                        raise PipelineError("host_association_verified must be true or false")
+                    value = value.casefold() == "true"
+                write_resolution(run_dir / "review_resolutions.toml", key=args.key, field=args.field, value=value)
+            print(json.dumps({
+                "date_checked": args.date_checked,
+                "review_count": len(queue),
+                "queue": str(queue_path),
+                "resolutions": str(run_dir / "review_resolutions.toml"),
+            }, sort_keys=True))
+            return 0
 
         update_date = _date(getattr(args, "date_checked", None))
         run_dir = RUNS_ROOT / update_date.isoformat()
@@ -131,6 +175,10 @@ def main(argv: list[str] | None = None) -> int:
         )
         pipeline = JobUpdatePipeline(context)
         if args.command == "fetch" or args.command == "doctor":
+            if args.command == "doctor" and not args.live:
+                print(json.dumps(pipeline.diagnostics(), sort_keys=True))
+                pipeline._close_resources()
+                return 0
             results = pipeline.fetch()
             summary = {
                 "date_checked": update_date.isoformat(),

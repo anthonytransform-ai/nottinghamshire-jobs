@@ -25,7 +25,7 @@ class OracleHCMAdapter(BaseAdapter):
         errors: list[str] = []
         while True:
             url = self._page_url(api_url, page_size, offset)
-            response = context.http_client.get(url, use_cache=False)
+            response = context.http_client.get(url, use_cache=True)
             if not response.ok:
                 if not records:
                     return blocked_result(self.spec, response.error or f"Oracle request failed ({response.status_code})", source_url=url)
@@ -156,7 +156,7 @@ class OracleHCMAdapter(BaseAdapter):
                 continue
             if not record.apply_url_raw or record.apply_url_raw == record.source_url:
                 continue
-            response = context.http_client.get(record.apply_url_raw, use_cache=False)
+            response = context.http_client.get(record.apply_url_raw, use_cache=True)
             if not response.ok:
                 record.evidence["detail_fetch_error"] = response.error or f"HTTP {response.status_code}"
                 continue

@@ -1,0 +1,38 @@
+name: Validate weekly update engine
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - job_update/**
+      - config/**
+      - scripts/**
+      - tests/**
+      - requirements-job-update.txt
+
+permissions:
+  contents: read
+
+jobs:
+  validate-engine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compile engine
+        run: python -m compileall -q job_update scripts
+
+      - name: Run fixture suite
+        run: python -m unittest discover -s tests -v

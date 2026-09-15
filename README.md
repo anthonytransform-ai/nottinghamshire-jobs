@@ -9,7 +9,7 @@ Normal Job Updates are prepared and audited outside the public site, then propos
 Publication flow:
 
 1. Produce the final verified CSV using the exact contract below.
-2. Validate the structured dataset, row count, 56-day rule, duplicates and required sort order.
+2. Validate the structured dataset, row count, fixed deadlines, duplicates and required sort order.
 3. Calculate SHA-256 for the exact final CSV bytes.
 4. Read the current `main` commit SHA.
 5. Create a branch from that exact `main`, normally `job-update/YYYY-MM-DD`.
@@ -74,7 +74,7 @@ For a same-day Job Update candidate, use:
 py scripts/validate_job_update.py jobs.csv --require-today
 ```
 
-The validator checks the exact schema/order, update-date consistency, row count, SHA-256, enums, dates/times, inclusive 56-day rule, required fields, HTTP(S) URLs, duplicate keys and required sort order. `--require-today` also rejects a stale update date and an explicit same-day deadline that has already passed in `Europe/London`.
+The validator checks the exact schema/order, update-date consistency, row count, SHA-256, enums, dates/times, fixed closing dates on or after the update date, required fields, HTTP(S) URLs, duplicate keys and required sort order. There is no maximum future closing-date horizon. `--require-today` also rejects a stale update date and an explicit same-day deadline that has already passed in `Europe/London`.
 
 The validator reads the complete `jobs.csv` directly. It does not reconstruct data from chunks and it does not publish or transform the file.
 
@@ -101,7 +101,7 @@ Run a live, non-publishing shadow update. By default the candidate and all audit
 py -m job_update run --date 2026-09-21
 ```
 
-The run writes `source_audit.json`, `source_audit.md`, `raw_records.json`, `normalized_records.json`, `review_queue.json`, `exclusions.json`, `validation.json`, `summary.json`, `pr_body.md` and a candidate `jobs.csv` in the run directory. Every mandatory source gets an audit row, including verified zero-result sources. Retrieval failures remain `Partially verified` or `Blocked`; they are never converted to zero vacancies.
+The run writes `source_audit.json`, `source_audit.md`, `raw_records.json`, `resolved_raw_records.json`, `normalized_records.json`, `review_queue.json`, `review_resolutions.toml` (when decisions are made), `exclusions.json`, `validation.json`, `summary.json`, `pr_body.md` and a candidate `jobs.csv` in the run directory. Every mandatory source gets an audit row, including verified zero-result sources. Retrieval failures remain `Partially verified` or `Blocked`; they are never converted to zero vacancies. Raw records retain advertised-employer, host/service-association and actual-work-base evidence separately from the exact public CSV.
 
 Useful separated commands are:
 
@@ -109,10 +109,13 @@ Useful separated commands are:
 py -m job_update fetch --date 2026-09-21
 py -m job_update build --date 2026-09-21
 py -m job_update audit --date 2026-09-21
+py -m job_update review --date 2026-09-21 --write-template
 py -m job_update doctor --live --date 2026-09-21
 ```
 
-After reviewing the audit and resolving the structured review queue, an operator may explicitly choose an output path such as `--output .\jobs.csv`; the existing validator and one-file PR/manual squash-merge gate remain authoritative. The implementation engine does not push directly to `main`, open a publication PR automatically, or merge anything.
+`doctor` without `--live` is local-only: it checks registry/adapters and browser availability without retrieving sources. `doctor --live` explicitly performs public retrieval. Review decisions are run-local and safe: use the stable key from `review_queue.json`, for example `py -m job_update review --date 2026-09-21 --key SOURCE::ID --field location_area --value Mansfield`, then rebuild with `py -m job_update build --date 2026-09-21`. Resolutions may set location, job area, employer/host association or policy, but cannot invent closing dates, live status or public references. Rebuild does not refetch sources.
+
+After reviewing the audit and resolving the structured review queue, an operator may explicitly choose an output path such as `--output .\jobs.csv`; the existing validator and one-file PR/manual squash-merge gate remain authoritative. The implementation engine does not push directly to `main`, open a publication PR automatically, or merge anything. The new FE sources include Nottingham College, West Nottinghamshire College and North Notts College/RNN Group.
 
 ## Pull request rule
 
@@ -128,7 +131,7 @@ The final PR should contain exactly one changed file:
 jobs.csv
 ```
 
-The PR description should include the date checked, eligible row count, closing-date window, candidate commit SHA, SHA-256, validation result, and any important partially verified or blocked mandatory sources.
+The PR description should include the date checked, eligible row count, fixed-deadline policy, candidate commit SHA, SHA-256, validation result, review count and any important partially verified or blocked mandatory sources.
 
 If `main` changes while a candidate is being prepared, refresh or recreate the candidate from current `main` and validate again. Do not overwrite `main` to bypass the PR review gate.
 
@@ -187,5 +190,6 @@ Analytics is independent of the vacancy-data publication pipeline. Normal weekly
 - `manifest.webmanifest` — install name, standalone display settings and app metadata.
 - `icons/` — Android, desktop and iPhone Home Screen icons derived from the supplied logo.
 - `.github/workflows/validate-jobs-pr.yml` — read-only PR validation gate for routine Job Updates.
+- `.github/workflows/validate-engine.yml` — fixture-only CI gate for engine/config/test changes.
 - `scripts/validate_job_update.py` — deterministic fail-closed whole-file CSV validator.
-- `tests/` — standard-library validator regression tests.
+- `tests/` — standard-library engine, adapter, policy and validator regression tests.

@@ -13,7 +13,7 @@ from .common import extract_deadline, first_link, first_title, labelled_value, m
 class UniversityNottinghamAdapter(BaseAdapter):
     def fetch(self, context: RunContext):
         url = self.spec.official_entry_url
-        response = context.http_client.get(url, use_cache=False)
+        response = context.http_client.get(url, use_cache=True)
         method = "direct-http"
         if not response.ok and context.allow_browser:
             rendered = context.browser.render(url, wait_ms=2_000)
@@ -122,7 +122,7 @@ class UniversityNottinghamAdapter(BaseAdapter):
             return records
 
         # Small fixture/simple-list fallback for sources that expose cards.
-        default_location = str(self.spec.configuration.get("location_default", ""))
+        default_location = str(self.spec.configuration.get("location_default", "")) if self.spec.configuration.get("location_default_verified", False) else ""
         for attrs, body in candidate_blocks(html):
             title = first_title(body)
             if not title or title.lower() in {"full list of current opportunities", "current opportunities", "all current vacancies"}:
@@ -136,12 +136,12 @@ class UniversityNottinghamAdapter(BaseAdapter):
             text = clean_text(body)
             deadline, closing_time = extract_deadline(text)
             location = first_attr(attrs, ("data-location",)) or labelled_value(text, ("Location", "Based at", "Campus")) or default_location
-            reference = first_attr(attrs, ("data-reference", "data-job-reference")) or record_id
+            reference = first_attr(attrs, ("data-reference", "data-job-reference"))
             records.append(
                 make_raw(
                     source_id=self.spec.source_id,
                     source_url=source_url,
-                    record_id=record_id or reference,
+                    record_id=record_id,
                     title=title,
                     organization=default_org,
                     location=location,
@@ -180,7 +180,7 @@ class UniversityNottinghamAdapter(BaseAdapter):
         for record in records:
             if not record.apply_url_raw or record.apply_url_raw == record.source_url:
                 continue
-            response = context.http_client.get(record.apply_url_raw, use_cache=False)
+            response = context.http_client.get(record.apply_url_raw, use_cache=True)
             if not response.ok:
                 failures += 1
                 record.evidence["detail_fetch_error"] = response.error or f"HTTP {response.status_code}"
@@ -202,4 +202,5 @@ class UniversityNottinghamAdapter(BaseAdapter):
             if "open until filled" in lowered or "rolling recruitment" in lowered:
                 record.evidence["open_ended"] = True
             record.description_raw = f"{record.description_raw} {text}".strip()
+            record.evidence["detail_verified"] = True
         return failures

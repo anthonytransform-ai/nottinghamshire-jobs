@@ -14,7 +14,7 @@ class TALAdapter(BaseAdapter):
     def fetch(self, context: RunContext):
         config = self.spec.configuration
         entry_url = self.spec.official_entry_url
-        response = context.http_client.get(entry_url, use_cache=False)
+        response = context.http_client.get(entry_url, use_cache=True)
         if not response.ok and not context.allow_browser:
             return blocked_result(self.spec, response.error or f"TAL official entry failed ({response.status_code})", source_url=entry_url)
         entry_html = response.text if response.ok else ""
@@ -31,7 +31,7 @@ class TALAdapter(BaseAdapter):
         if not board_url:
             return blocked_result(self.spec, "official entry did not expose a current TAL board route", source_url=entry_url)
 
-        board_response = context.http_client.get(board_url, use_cache=False)
+        board_response = context.http_client.get(board_url, use_cache=True)
         method = "direct-http"
         if self._is_challenge(board_response.text, board_response.status_code):
             if context.allow_browser:
@@ -75,7 +75,7 @@ class TALAdapter(BaseAdapter):
                     break
                 page_total, page_records, page_filtered = self._parse(page.html, page.url or next_url)
             else:
-                page = context.http_client.get(next_url, use_cache=False)
+                page = context.http_client.get(next_url, use_cache=True)
                 if not page.ok:
                     warnings.append(f"TAL pagination page failed: {next_url}")
                     break
@@ -125,7 +125,8 @@ class TALAdapter(BaseAdapter):
                 title = first_title(body)
                 if not title:
                     continue
-                record_id = first_attr(attrs, ("data-oppid", "data-opportunity-id")) or source_record_id(attrs, body, source_url)
+                public_reference = first_attr(attrs, ("data-oppid", "data-opportunity-id", "data-reference", "data-job-reference"))
+                record_id = public_reference or source_record_id(attrs, body, source_url)
                 key = record_id or title
                 if key in seen:
                     continue
@@ -144,7 +145,7 @@ class TALAdapter(BaseAdapter):
                         deadline=deadline,
                         closing_time="",
                         apply_url=first_link(body, source_url) or source_url,
-                        reference=record_id,
+                        reference=public_reference,
                         description=clean_text(body),
                         evidence={"tal_board_kind": self.spec.configuration.get("board_kind", ""), "table_row": True},
                     )
@@ -167,7 +168,7 @@ class TALAdapter(BaseAdapter):
             deadline, closing_time = extract_deadline(text)
             location = first_attr(attrs, ("data-location",)) or labelled_value(text, ("Location", "Based at", "Working location"))
             employer = labelled_value(text, ("Employer", "Organisation", "Organisation name")) or organization
-            reference = first_attr(attrs, ("data-reference", "data-opportunity-id")) or record_id
+            reference = first_attr(attrs, ("data-reference", "data-opportunity-id", "data-oppid", "data-job-reference"))
             records.append(
                 make_raw(
                     source_id=self.spec.source_id,

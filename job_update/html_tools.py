@@ -49,6 +49,44 @@ def extract_tag_blocks(html: str, tag: str = "div") -> list[tuple[str, str]]:
     return [(match.group("attrs"), match.group("body")) for match in pattern.finditer(html)]
 
 
+def extract_balanced_tag_blocks(
+    html: str,
+    tag: str,
+    *,
+    required_tokens: tuple[str, ...] = (),
+) -> list[tuple[str, str]]:
+    """Return nested tag blocks without losing the first child of a container.
+
+    The lightweight regex extractor above is intentionally useful for small
+    fixtures, but it cannot balance nested elements.  Public recruitment
+    pages commonly place job cards inside a result container, so a shallow
+    match can consume the first card while still returning later siblings.
+    This small token-stack parser keeps the fixture-friendly API while making
+    the source adapters safe for those real pages.
+    """
+
+    token = re.compile(
+        rf"<(?P<closing>/)?{re.escape(tag)}\b(?P<attrs>[^>]*)>",
+        re.I | re.S,
+    )
+    stack: list[tuple[int, int, str]] = []
+    blocks: list[tuple[int, str, str]] = []
+    wanted = tuple(value.casefold() for value in required_tokens)
+    for match in token.finditer(html or ""):
+        if match.group("closing"):
+            if not stack:
+                continue
+            start, body_start, attrs = stack.pop()
+            if all(value in attrs.casefold() for value in wanted):
+                blocks.append((start, attrs, html[body_start:match.start()]))
+            continue
+        attrs = match.group("attrs") or ""
+        if attrs.rstrip().endswith("/"):
+            continue
+        stack.append((match.start(), match.end(), attrs))
+    return [(attrs, body) for _start, attrs, body in sorted(blocks, key=lambda item: item[0])]
+
+
 def first_attr(attrs: str, names: tuple[str, ...]) -> str:
     for name in names:
         match = re.search(rf"\b{re.escape(name)}\s*=\s*([\"'])(.*?)\1", attrs, re.I | re.S)
