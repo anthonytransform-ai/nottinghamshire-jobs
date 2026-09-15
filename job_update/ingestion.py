@@ -2,9 +2,10 @@
 
 The accepted document is a JSON object with schema_version, date_checked and a
 sources array. Each source entry carries source_id, status, retrieval_method,
-verification_method, source_total, captured_total, source_url, checked_at,
-warnings, errors, reported_totals and records. Every mandatory registry source
-must be present, including a verified zero-result source. A record preserves
+verification_method, completeness_evidence, source_total, captured_total,
+source_url, checked_at, warnings, errors, reported_totals and records. Every
+mandatory registry source must be present, including a verified zero-result
+source. A record preserves
 source identity separately from the public reference and must include the
 factual, host-association, deadline, URL and controlled semantic fields used
 by the deterministic build.
@@ -170,6 +171,7 @@ def validate_source_results(
         )
         _require_string(item.get("retrieval_method"), f"{source_id}.retrieval_method", allow_empty=False)
         _require_string(item.get("verification_method"), f"{source_id}.verification_method", allow_empty=False)
+        _require_string(item.get("completeness_evidence"), f"{source_id}.completeness_evidence", allow_empty=False)
         _require_string(item.get("checked_at"), f"{source_id}.checked_at", allow_empty=False)
         if not isinstance(item.get("warnings", []), list) or not all(isinstance(value, str) for value in item.get("warnings", [])):
             raise IngestionError(f"{source_id}.warnings must be an array of strings")
@@ -266,6 +268,7 @@ def load_source_results(path: Path, registry: Any, *, expected_date: date | None
                 source_url=source_url,
                 verification_method=item["verification_method"],
                 reported_totals=dict(item.get("reported_totals", {})),
+                completeness_evidence=item["completeness_evidence"],
             )
         )
     return results
@@ -306,6 +309,7 @@ def structured_payload(results: Iterable[SourceResult], *, date_checked: date) -
                 "status": result.status.value,
                 "retrieval_method": result.retrieval_method,
                 "verification_method": result.verification_method,
+                "completeness_evidence": result.completeness_evidence,
                 "source_total": result.source_total,
                 "captured_total": len(result.raw_vacancies),
                 "source_url": result.source_url,

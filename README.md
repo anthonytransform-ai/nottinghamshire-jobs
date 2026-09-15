@@ -86,7 +86,7 @@ The normal weekly evidence handoff is:
 
 1. Reverify the current `main`, Playbook and registry.
 2. Research every mandatory source, including pagination/load-more routes, source totals, advert details, fixed deadlines, actual Nottinghamshire work bases, job-area semantics and verified host/service association.
-3. Write one `source_results.json` document using the schema in `job_update/ingestion.py`. Include every mandatory source, including verified zero-result sources. A failed or incomplete source must be `Partially verified` or `Blocked`, never an invented zero.
+3. Write one `source_results.json` document using the schema in `job_update/ingestion.py`. Include every mandatory source, including verified zero-result sources, and state the completeness evidence used for each source. A failed or incomplete source must be `Partially verified` or `Blocked`, never an invented zero.
 4. Validate and copy the evidence into the dated run directory:
 
 ```powershell

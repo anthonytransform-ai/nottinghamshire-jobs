@@ -10,6 +10,7 @@ from job_update.configuration import resolution_key
 from job_update.dedupe import deduplicate
 from job_update.eligibility import evaluate
 from job_update.http_client import HttpResponse
+from job_update.html_tools import clean_text
 from job_update.ingestion import IngestionError, load_source_results, validate_source_results, write_structured_source_results
 from job_update.models import NormalizedVacancy, RawVacancy, RunContext, SourceResult, SourceSpec, SourceStatus
 from job_update.normalise import normalize_contract
@@ -57,9 +58,7 @@ def context(registry, client=None, run_dir=None):
         run_dir=run_dir or tempfile.mkdtemp(),
         registry=registry,
         http_client=client,
-        browser=None,
         live=client is not None,
-        allow_browser=False,
         now=datetime(2026, 9, 15, 10, 0, tzinfo=london_timezone()),
     )
 
@@ -143,6 +142,10 @@ class IngestionTests(unittest.TestCase):
 
 
 class StableCollectorTests(unittest.TestCase):
+    def test_oracle_html_text_excludes_script_and_style_payloads(self):
+        value = clean_text("<style>.hidden { color: red; }</style><div>Closing date: 31 October 2026</div><script>window.noise = true;</script>")
+        self.assertEqual("Closing date: 31 October 2026", value)
+
     def test_oracle_is_the_only_retained_stable_collector(self):
         registry = SourceRegistry.load()
         collectors = registry.collectors()

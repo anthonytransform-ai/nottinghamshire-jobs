@@ -26,6 +26,7 @@ def audit_rows(results: Iterable[SourceResult], *, mandatory_only: bool = False)
                 "captured_total": result.captured_total,
                 "eligible_count": result.eligible_hint_count,
                 "verification_method": result.verification_method,
+                "completeness_evidence": result.completeness_evidence,
                 "retrieval_method": result.retrieval_method,
                 "status": result.status.value,
                 "warnings": result.warnings,

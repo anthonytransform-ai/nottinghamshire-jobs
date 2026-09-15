@@ -64,12 +64,10 @@ class JobUpdatePipeline:
             self._close_resources()
         return results
 
-    fetch = collect
-
     def load_results(self) -> list[SourceResult]:
         path = self.context.run_dir / "source_results.json"
         if not path.exists():
-            raise PipelineError(f"no fetched source results at {path}; run fetch first")
+            raise PipelineError(f"no structured source results at {path}; run ingest first")
         return load_source_results(path, self.context.registry, expected_date=self.context.date_checked)
 
     def build(self, results: list[SourceResult], *, output_path: Path | None = None) -> dict[str, Any]:
@@ -272,7 +270,7 @@ class JobUpdatePipeline:
         }
 
     def _close_resources(self) -> None:
-        for resource in (self.context.browser, self.context.http_client):
+        for resource in (self.context.http_client,):
             close = getattr(resource, "close", None)
             if callable(close):
                 try:

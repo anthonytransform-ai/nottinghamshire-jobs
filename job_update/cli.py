@@ -77,9 +77,7 @@ def _context(registry: SourceRegistry, update_date: date, run_dir: Path, *, live
         run_dir=run_dir,
         registry=registry,
         http_client=HttpClient() if live else None,
-        browser=None,
         live=live,
-        allow_browser=False,
         now=london_now(),
     )
 

@@ -10,9 +10,23 @@ class _TextParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.parts: list[str] = []
+        self._ignored_depth = 0
+
+    def handle_starttag(self, tag: str, attrs) -> None:
+        if tag.casefold() in {"script", "style", "noscript", "template"}:
+            self._ignored_depth += 1
+
+    def handle_startendtag(self, tag: str, attrs) -> None:
+        # A self-closing ignored tag has no content to suppress.
+        return
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.casefold() in {"script", "style", "noscript", "template"} and self._ignored_depth:
+            self._ignored_depth -= 1
 
     def handle_data(self, data: str) -> None:
-        self.parts.append(data)
+        if not self._ignored_depth:
+            self.parts.append(data)
 
 
 def clean_text(value: str) -> str:

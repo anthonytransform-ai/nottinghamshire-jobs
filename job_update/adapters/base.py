@@ -53,6 +53,7 @@ class BaseAdapter:
             source_url=source_url or self.spec.official_entry_url,
             verification_method=verification_method,
             reported_totals=reported_totals or {},
+            completeness_evidence=self.spec.completeness_evidence,
         )
 
 
@@ -70,4 +71,5 @@ def blocked_result(spec: SourceSpec, error: str, *, source_url: str = "") -> Sou
         checked_at=london_now().isoformat(),
         source_url=source_url or spec.official_entry_url,
         verification_method="official-api",
+        completeness_evidence=spec.completeness_evidence,
     )

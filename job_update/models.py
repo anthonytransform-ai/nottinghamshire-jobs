@@ -86,6 +86,7 @@ class SourceResult:
     verification_method: str = ""
     reported_totals: dict[str, int] = field(default_factory=dict)
     exclusions: list[dict[str, str]] = field(default_factory=list)
+    completeness_evidence: str = ""
 
     def to_dict(self, *, include_raw: bool = True) -> dict[str, Any]:
         result = asdict(self)
@@ -115,6 +116,7 @@ class SourceResult:
             "verification_method",
             "reported_totals",
             "exclusions",
+            "completeness_evidence",
         }
         kwargs = {key: value.get(key) for key in known if key in value}
         kwargs["raw_vacancies"] = raw
@@ -206,9 +208,7 @@ class RunContext:
     run_dir: Any
     registry: Any
     http_client: Any = None
-    browser: Any = None
-    live: bool = True
-    allow_browser: bool = True
+    live: bool = False
     now: datetime | None = None
     classification_rules: Any = None
     overrides: dict[str, Any] = field(default_factory=dict)
