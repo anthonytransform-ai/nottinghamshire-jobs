@@ -9,7 +9,7 @@ Normal Job Updates are prepared and audited outside the public site, then propos
 Publication flow:
 
 1. Produce the final verified CSV using the exact contract below.
-2. Validate the structured dataset, row count, 56-day rule, duplicates and required sort order.
+2. Validate the structured dataset, row count, closing-date policy, duplicates and required sort order.
 3. Calculate SHA-256 for the exact final CSV bytes.
 4. Read the current `main` commit SHA.
 5. Create a branch from that exact `main`, normally `job-update/YYYY-MM-DD`.
@@ -74,7 +74,7 @@ For a same-day Job Update candidate, use:
 py scripts/validate_job_update.py jobs.csv --require-today
 ```
 
-The validator checks the exact schema/order, update-date consistency, row count, SHA-256, enums, dates/times, inclusive 56-day rule, required fields, HTTP(S) URLs, duplicate keys and required sort order. `--require-today` also rejects a stale update date and an explicit same-day deadline that has already passed in `Europe/London`.
+The validator checks the exact schema/order, update-date consistency, row count, SHA-256, enums, dates/times, closing dates on or after the update date with no maximum future horizon, required fields, HTTP(S) URLs, duplicate keys and required sort order. `--require-today` also rejects a stale update date and an explicit same-day deadline that has already passed in `Europe/London`.
 
 The validator reads the complete `jobs.csv` directly. It does not reconstruct data from chunks and it does not publish or transform the file.
 
@@ -92,7 +92,7 @@ The final PR should contain exactly one changed file:
 jobs.csv
 ```
 
-The PR description should include the date checked, eligible row count, closing-date window, candidate commit SHA, SHA-256, validation result, and any important partially verified or blocked mandatory sources.
+The PR description should include the date checked, eligible row count, closing-date policy (no maximum future horizon), candidate commit SHA, SHA-256, validation result, and any important partially verified or blocked mandatory sources.
 
 If `main` changes while a candidate is being prepared, refresh or recreate the candidate from current `main` and validate again. Do not overwrite `main` to bypass the PR review gate.
 
