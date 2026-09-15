@@ -1,8 +1,7 @@
-"""Adapter protocol and common result helpers."""
+"""Protocol and result helper for the retained stable collectors."""
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Protocol
 
 from ..models import RawVacancy, RunContext, SourceResult, SourceSpec, SourceStatus
@@ -33,34 +32,19 @@ class BaseAdapter:
         warnings: list[str] | None = None,
         errors: list[str] | None = None,
         source_url: str | None = None,
-        verification_method: str = "primary-platform-listing",
+        verification_method: str = "official-api",
         reported_totals: dict[str, int] | None = None,
-        exclusions: list[dict[str, str]] | None = None,
     ) -> SourceResult:
         records = raw or []
         for record in records:
             prepare_source_metadata(record, self.spec)
-            if (
-                not record.location_raw
-                and self.spec.configuration.get("location_default")
-                and self.spec.configuration.get("location_default_verified", False)
-            ):
-                record.location_raw = str(self.spec.configuration["location_default"])
-                record.evidence["location_default_applied"] = True
-        unique_keys = {
-            record.source_record_id
-            or record.reference_raw
-            or record.apply_url_raw
-            or f"{record.title_raw}|{record.location_raw}|{record.closing_date_raw}"
-            for record in records
-        }
         return SourceResult(
             source_id=self.spec.source_id,
             source_name=self.spec.display_name,
             mandatory=self.spec.mandatory,
             retrieval_method=method,
             source_total=source_total,
-            captured_total=len(unique_keys),
+            captured_total=len(records),
             raw_vacancies=records,
             status=status,
             warnings=warnings or [],
@@ -69,7 +53,6 @@ class BaseAdapter:
             source_url=source_url or self.spec.official_entry_url,
             verification_method=verification_method,
             reported_totals=reported_totals or {},
-            exclusions=exclusions or [],
         )
 
 
@@ -78,7 +61,7 @@ def blocked_result(spec: SourceSpec, error: str, *, source_url: str = "") -> Sou
         source_id=spec.source_id,
         source_name=spec.display_name,
         mandatory=spec.mandatory,
-        retrieval_method="none",
+        retrieval_method="stable-collector",
         source_total=None,
         captured_total=0,
         raw_vacancies=[],
@@ -86,4 +69,5 @@ def blocked_result(spec: SourceSpec, error: str, *, source_url: str = "") -> Sou
         errors=[error],
         checked_at=london_now().isoformat(),
         source_url=source_url or spec.official_entry_url,
+        verification_method="official-api",
     )

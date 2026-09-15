@@ -9,11 +9,12 @@ from typing import Any
 
 from .adapters.base import blocked_result
 from .audit import anomaly_warnings, write_source_audit, write_history_snapshot
-from .classify import classify_job_area, classify_location, load_classification_rules
+from .classify import JOB_AREAS, LOCATION_AREAS, classify_job_area, classify_location, load_classification_rules
 from .csv_writer import write_csv
 from .configuration import apply_resolution, apply_tracked_overrides, load_resolutions, load_tracked_overrides, resolution_key
 from .dedupe import deduplicate
 from .eligibility import evaluate
+from .ingestion import load_source_results, write_structured_source_results
 from .models import Exclusion, ReviewItem, RunContext, SourceResult, SourceStatus
 from .normalise import normalized_vacancy
 from .review import write_review_queue
@@ -33,35 +34,43 @@ class JobUpdatePipeline:
         if not self.context.overrides:
             self.context.overrides = load_tracked_overrides(self.context.run_dir.parent.parent / "config" / "overrides.toml")
 
-    def fetch(self) -> list[SourceResult]:
+    def collect(self, source_ids: set[str] | None = None) -> list[SourceResult]:
+        """Run only explicitly retained stable collectors.
+
+        Normal weekly operation does not call this method: Codex researches
+        agent-owned sources and supplies source_results.json.  Keeping the
+        stable collector path explicit prevents a missing collector from
+        being mistaken for a zero-result source.
+        """
+
         if not self.context.live:
-            raise PipelineError("source retrieval is disabled for a non-live context; use doctor --live or a live run")
+            raise PipelineError("stable collection is disabled for a non-live context")
         results: list[SourceResult] = []
         try:
-            for adapter in self.context.registry.adapters():
+            collectors = self.context.registry.collectors()
+            if source_ids is not None:
+                collectors = [collector for collector in collectors if collector.spec.source_id in source_ids]
+            if not collectors:
+                raise PipelineError("no requested stable collectors are configured")
+            for adapter in collectors:
                 try:
                     result = adapter.fetch(self.context)
                 except Exception as exc:
-                    # One broken source must not erase the mandatory audit row.
+                    # A retained collector failure is explicit; it cannot
+                    # masquerade as an agent-researched zero-result source.
                     result = blocked_result(adapter.spec, f"adapter error: {type(exc).__name__}: {exc}")
                 results.append(result)
         finally:
             self._close_resources()
-        self._write_source_results(results)
-        self._write_raw_records(results)
-        write_source_audit(
-            results,
-            self.context.run_dir / "source_audit.json",
-            self.context.run_dir / "source_audit.md",
-        )
         return results
+
+    fetch = collect
 
     def load_results(self) -> list[SourceResult]:
         path = self.context.run_dir / "source_results.json"
         if not path.exists():
             raise PipelineError(f"no fetched source results at {path}; run fetch first")
-        values = json.loads(path.read_text(encoding="utf-8"))
-        return [SourceResult.from_dict(item) for item in values]
+        return load_source_results(path, self.context.registry, expected_date=self.context.date_checked)
 
     def build(self, results: list[SourceResult], *, output_path: Path | None = None) -> dict[str, Any]:
         normalized = []
@@ -77,18 +86,8 @@ class JobUpdatePipeline:
                 decision_key = resolution_key(raw)
                 apply_tracked_overrides(raw, self.context.overrides if isinstance(self.context.overrides, list) else [])
                 apply_resolution(raw, resolutions.get(decision_key))
-                location_area, location_reason, location_candidates = classify_location(
-                    raw.location_raw,
-                    raw.description_raw,
-                    str(raw.evidence.get("location_area_override", "")),
-                    rules=self.context.classification_rules,
-                )
-                job_area, job_reason, job_candidates = classify_job_area(
-                    raw.title_raw,
-                    raw.description_raw,
-                    str(raw.evidence.get("job_area_override", "")),
-                    rules=self.context.classification_rules,
-                )
+                location_area, location_reason, location_candidates = self._location_decision(raw)
+                job_area, job_reason, job_candidates = self._job_area_decision(raw)
                 decision = evaluate(
                     raw,
                     update_date=self.context.date_checked,
@@ -255,20 +254,21 @@ class JobUpdatePipeline:
         return "policy", []
 
     def run(self, *, output_path: Path | None = None) -> dict[str, Any]:
-        results = self.fetch()
+        results = self.load_results()
         return self.build(results, output_path=output_path)
 
     def diagnostics(self) -> dict[str, Any]:
         """Return local readiness information without contacting sources."""
 
-        adapters = self.context.registry.adapters()
+        collectors = self.context.registry.collectors()
         return {
             "live": False,
             "network_requests": 0,
-            "source_count": len(adapters),
-            "mandatory_source_count": sum(1 for adapter in adapters if adapter.spec.mandatory),
-            "browser_available": bool(getattr(self.context.browser, "available", lambda: False)()),
-            "adapter_errors": [],
+            "source_count": len(self.context.registry.sources),
+            "mandatory_source_count": len(self.context.registry.mandatory),
+            "agent_researched_source_count": len(self.context.registry.agent_researched),
+            "stable_collector_count": len(collectors),
+            "ingestion_schema_version": 1,
         }
 
     def _close_resources(self) -> None:
@@ -282,16 +282,33 @@ class JobUpdatePipeline:
                     pass
 
     def _write_source_results(self, results: list[SourceResult]) -> None:
-        (self.context.run_dir / "source_results.json").write_text(
-            json.dumps([result.to_dict() for result in results], indent=2, ensure_ascii=False) + "\n",
-            encoding="utf-8",
+        write_structured_source_results(
+            results,
+            self.context.run_dir / "source_results.json",
+            date_checked=self.context.date_checked,
         )
 
-    def _write_raw_records(self, results: list[SourceResult]) -> None:
-        records = [raw.to_dict() for result in results for raw in result.raw_vacancies]
-        (self.context.run_dir / "raw_records.json").write_text(
-            json.dumps(records, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-        )
+    def _location_decision(self, raw):
+        supplied = str(raw.location_area_raw or raw.evidence.get("location_area", "")).strip()
+        override = str(raw.evidence.get("location_area_override", "")).strip()
+        if override:
+            supplied = override
+        if supplied:
+            if supplied not in LOCATION_AREAS:
+                return None, "agent supplied an invalid location-area value", []
+            return supplied, "agent-supplied controlled location-area decision", [supplied]
+        return classify_location(raw.location_raw, raw.description_raw, rules=self.context.classification_rules)
+
+    def _job_area_decision(self, raw):
+        supplied = str(raw.job_area_raw or raw.evidence.get("job_area", "")).strip()
+        override = str(raw.evidence.get("job_area_override", "")).strip()
+        if override:
+            supplied = override
+        if supplied:
+            if supplied not in JOB_AREAS:
+                return None, "agent supplied an invalid job-area value", []
+            return supplied, "agent-supplied controlled job-area decision", [supplied]
+        return classify_job_area(raw.title_raw, raw.description_raw, rules=self.context.classification_rules)
 
     @staticmethod
     def _validate(data: bytes, date_checked: str) -> dict[str, Any]:
@@ -330,7 +347,7 @@ class JobUpdatePipeline:
                 f"- Structured review queue items: **{len(review_items)}**",
                 "- Vacancies may close early or be withdrawn after this check.",
                 "",
-                "The implementation deliberately does not auto-merge this candidate.",
+            "Source evidence was supplied by Codex and deterministically rebuilt; the implementation deliberately does not auto-merge this candidate.",
             ]
         )
         return "\n".join(lines) + "\n"

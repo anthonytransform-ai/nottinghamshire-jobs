@@ -80,14 +80,26 @@ The validator reads the complete `jobs.csv` directly. It does not reconstruct da
 
 ## Weekly Job Update engine
 
-The repository includes a reusable, fixture-tested Python engine under `job_update/`. It follows the current Job Search Playbook's retrieval order: official API/public data, direct official HTTP parsing, public recruitment-system routes, optional Playwright Chromium fallback, then explicit partial/blocked audit status. It does not use Firecrawl and it does not call an OpenAI API at runtime.
+The repository includes a reusable, fixture-tested Python engine under `job_update/`. The weekly workflow is agent-first: Codex researches each current official source and writes dated structured evidence, while Python performs validation, policy evaluation, deduplication, audit generation, CSV writing and the existing whole-file validation. The registry and Playbook remain the source-coverage contract. The engine does not use Firecrawl and does not call an OpenAI API at runtime.
 
-Install the optional operator tooling when live browser fallback is needed:
+The normal weekly evidence handoff is:
+
+1. Reverify the current `main`, Playbook and registry.
+2. Research every mandatory source, including pagination/load-more routes, source totals, advert details, fixed deadlines, actual Nottinghamshire work bases, job-area semantics and verified host/service association.
+3. Write one `source_results.json` document using the schema in `job_update/ingestion.py`. Include every mandatory source, including verified zero-result sources. A failed or incomplete source must be `Partially verified` or `Blocked`, never an invented zero.
+4. Validate and copy the evidence into the dated run directory:
 
 ```powershell
-py -m pip install -r requirements-job-update.txt
-py -m playwright install chromium
+py -m job_update ingest --date 2026-09-21 --input .\source_results.json
 ```
+
+5. Build the deterministic candidate and audit artefacts without network access:
+
+```powershell
+py -m job_update build --date 2026-09-21
+```
+
+The evidence document preserves source records separately from publication records. Each record carries its source record ID, public job reference, advertised employer, host organisation, host-association evidence, actual location, controlled location/job-area values, deadline, application URL and evidence URLs. Source-level totals are reconciled when available. The generated run contains `source_results.json`, `source_audit.json`, `source_audit.md`, `resolved_raw_records.json`, `normalized_records.json`, `review_queue.json`, `exclusions.json`, `validation.json`, `summary.json`, `pr_body.md` and a candidate `jobs.csv`.
 
 Inspect the complete registry, including every mandatory source:
 
@@ -95,27 +107,31 @@ Inspect the complete registry, including every mandatory source:
 py -m job_update sources
 ```
 
-Run a live, non-publishing shadow update. By default the candidate and all audit artefacts stay under `.job-update-runs/YYYY-MM-DD/`; the repository's tracked `jobs.csv` is not replaced:
+Check local readiness without network access:
 
 ```powershell
-py -m job_update run --date 2026-09-21
+py -m job_update doctor
 ```
 
-The run writes `source_audit.json`, `source_audit.md`, `raw_records.json`, `resolved_raw_records.json`, `normalized_records.json`, `review_queue.json`, `review_resolutions.toml` (when decisions are made), `exclusions.json`, `validation.json`, `summary.json`, `pr_body.md` and a candidate `jobs.csv` in the run directory. Every mandatory source gets an audit row, including verified zero-result sources. Retrieval failures remain `Partially verified` or `Blocked`; they are never converted to zero vacancies. Raw records retain advertised-employer, host/service-association and actual-work-base evidence separately from the exact public CSV.
-
-Useful separated commands are:
+The one retained deterministic network collector is Nottingham City Council's public Oracle HCM route. It is explicit and optional; it does not replace the agent evidence workflow:
 
 ```powershell
-py -m job_update fetch --date 2026-09-21
-py -m job_update build --date 2026-09-21
+py -m job_update collect --date 2026-09-21 --source-id nottingham-city-oracle
+```
+
+Useful local commands are:
+
+```powershell
 py -m job_update audit --date 2026-09-21
 py -m job_update review --date 2026-09-21 --write-template
-py -m job_update doctor --live --date 2026-09-21
+py -m job_update review --date 2026-09-21 --key SOURCE::ID --field location_area --value Mansfield
+py -m job_update build --date 2026-09-21
+py -m job_update validate .\.job-update-runs\2026-09-21\jobs.csv --date-checked 2026-09-21
 ```
 
-`doctor` without `--live` is local-only: it checks registry/adapters and browser availability without retrieving sources. `doctor --live` explicitly performs public retrieval. Review decisions are run-local and safe: use the stable key from `review_queue.json`, for example `py -m job_update review --date 2026-09-21 --key SOURCE::ID --field location_area --value Mansfield`, then rebuild with `py -m job_update build --date 2026-09-21`. Resolutions may set location, job area, employer/host association or policy, but cannot invent closing dates, live status or public references. Rebuild does not refetch sources.
+Review decisions are run-local and safe. They may resolve controlled location/job-area values, employer/host association or policy, but cannot invent closing dates, live status or public references. Rebuild does not refetch sources. The engine supports the four explicit source states `Complete`, `Complete with fallback`, `Partially verified` and `Blocked`.
 
-After reviewing the audit and resolving the structured review queue, an operator may explicitly choose an output path such as `--output .\jobs.csv`; the existing validator and one-file PR/manual squash-merge gate remain authoritative. The implementation engine does not push directly to `main`, open a publication PR automatically, or merge anything. The new FE sources include Nottingham College, West Nottinghamshire College and North Notts College/RNN Group.
+After reviewing the audit and resolving the structured review queue, an operator may explicitly choose an output path such as `--output .\jobs.csv`; the existing validator and one-file PR/manual squash-merge gate remain authoritative. The implementation engine does not push directly to `main`, publish a weekly `jobs.csv` update, open a publication PR automatically, or merge anything. The registry includes Nottingham College, West Nottinghamshire College and North Notts College/RNN Group.
 
 ## Pull request rule
 
@@ -192,4 +208,4 @@ Analytics is independent of the vacancy-data publication pipeline. Normal weekly
 - `.github/workflows/validate-jobs-pr.yml` — read-only PR validation gate for routine Job Updates.
 - `.github/workflows/validate-engine.yml` — fixture-only CI gate for engine/config/test changes.
 - `scripts/validate_job_update.py` — deterministic fail-closed whole-file CSV validator.
-- `tests/` — standard-library engine, adapter, policy and validator regression tests.
+- `tests/` — standard-library structured-ingestion, stable-collector, policy and validator regression tests.

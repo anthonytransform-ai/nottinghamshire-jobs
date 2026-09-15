@@ -8,9 +8,8 @@ from .models import NormalizedVacancy, RawVacancy, SourceSpec
 
 
 def canonical_organization(raw: RawVacancy, spec: SourceSpec) -> str:
-    configured = str(spec.configuration.get("organization", "")).strip()
     advertised = (raw.advertised_employer_raw or raw.organization_raw).strip()
-    host = (raw.host_organization_raw or configured).strip()
+    host = (raw.host_organization_raw or spec.expected_host_service).strip()
     if advertised and (not host or raw.host_association_verified or _same_organization(advertised, host)):
         return advertised
     return host or advertised or spec.display_name.split(" — ", 1)[0].strip()
@@ -68,7 +67,7 @@ def normalized_vacancy(
         employer_type=spec.employer_type,
         job_title=" ".join(raw.title_raw.split()),
         job_area=job_area,
-        location=" ".join((raw.location_raw or spec.configuration.get("location_default", "")).split()),
+        location=" ".join(raw.location_raw.split()),
         location_area=location_area,
         closing_date=closing_date,
         closing_time=raw.closing_time_raw,

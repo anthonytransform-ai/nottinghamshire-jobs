@@ -1,23 +1,33 @@
-# Public, no-secret source registry derived from Job_Search_Playbook_2026-09-14.md.
-# URLs are discovery routes, not a promise that a recruitment platform will
-# retain the same path. Adapters re-discover linked routes where possible.
+# Agent-facing source registry derived from Job_Search_Playbook_2026-09-14_Final.md.
+#
+# Every mandatory source is researched afresh by Codex. The registry records
+# current discovery knowledge and completeness evidence to collect; it does
+# not require a bespoke HTML parser. Only the Oracle public API is retained as
+# a stable collector.
 
 [[sources]]
 source_id = "ncc-tal"
 display_name = "Nottinghamshire County Council — TAL NCC Vacancies"
 employer_type = "Council"
 mandatory = true
-adapter = "tal"
 official_entry_url = "https://www.nottinghamshire.gov.uk/jobs-and-working/working-for-us/opportunities-with-us"
-configuration = { board_kind = "ncc", brand = "brand-8" }
+source_type = "agent-researched"
+playbook_notes = "Follow the official link to the current TAL NCC Vacancies board; distinguish NCC Vacancies from All Vacancies and record anti-bot or indexed official evidence."
+expected_host_service = "Nottinghamshire County Council"
+completeness_evidence = "All current NCC board pages or an explicit current total, with TAL opportunity IDs."
 
 [[sources]]
 source_id = "nottingham-city-oracle"
 display_name = "Nottingham City Council — Oracle HCM"
 employer_type = "Council"
 mandatory = true
-adapter = "oracle_hcm"
 official_entry_url = "https://eism.fa.em2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/ncc/jobs"
+source_type = "stable-api"
+collector = "oracle_hcm"
+stable_data_route = "https://eism.fa.em2.oraclecloud.com/hcmRestApi/resources/latest/recruitingCEJobRequisitions?onlyData=true&expand=requisitionList&finder=findReqs;siteNumber=CX_1,limit=100,offset=0"
+playbook_notes = "Use the public recruitingCEJobRequisitions endpoint, paginate by offset, verify TotalJobsCount and each current requisition."
+expected_host_service = "Nottingham City Council"
+completeness_evidence = "Oracle TotalJobsCount equals the unique public requisition IDs captured."
 configuration = { api_url = "https://eism.fa.em2.oraclecloud.com/hcmRestApi/resources/latest/recruitingCEJobRequisitions?onlyData=true&expand=requisitionList&finder=findReqs;siteNumber=CX_1,limit=100,offset=0", detail_url_template = "https://eism.fa.em2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/ncc/job/{id}", site_number = "CX_1", page_size = 100, organization = "Nottingham City Council" }
 
 [[sources]]
@@ -25,276 +35,338 @@ source_id = "broxtowe-direct"
 display_name = "Broxtowe Borough Council — current vacancies"
 employer_type = "Council"
 mandatory = true
-adapter = "direct_council"
 official_entry_url = "https://www.broxtowe.gov.uk/for-you/jobs/current-vacancies/"
-configuration = { organization = "Broxtowe Borough Council", location_default = "Broxtowe", location_default_verified = true, detail_links = true, job_link_pattern = "current-vacancies/[^/]+/?$" }
+source_type = "agent-researched"
+playbook_notes = "Use the official current-vacancies route and its linked primary advert pages."
+expected_host_service = "Broxtowe Borough Council"
+completeness_evidence = "All visible current vacancy links and pagination/load-more controls inspected."
 
 [[sources]]
 source_id = "ashfield-itrent"
 display_name = "Ashfield District Council — iTrent"
 employer_type = "Council"
 mandatory = true
-adapter = "itrent"
 official_entry_url = "https://ce0930li.webitrent.com/ce0930li_webrecruitment/wrd/run/ETREC179GF.open?WVID=6777852QI7"
-configuration = { organization = "Ashfield District Council", wvid = "6777852QI7", location_default = "Ashfield", location_default_verified = true }
+source_type = "agent-researched"
+playbook_notes = "Follow the official Ashfield iTrent portal, inspect the current result total and every advert profile; use actual work base."
+expected_host_service = "Ashfield District Council"
+completeness_evidence = "Portal-reported current total reconciled to unique vacancy profiles."
 
 [[sources]]
 source_id = "bassetlaw-itrent"
 display_name = "Bassetlaw District Council — iTrent"
 employer_type = "Council"
 mandatory = true
-adapter = "itrent"
 official_entry_url = "https://careers.bassetlaw.gov.uk/"
-configuration = { portal_url = "https://ce0017li.webitrent.com/ce0017li_webrecruitment/wrd/run/ETREC179GF.open?WVID=8070960wxx", organization = "Bassetlaw District Council", wvid = "8070960wxx", location_default = "Bassetlaw", location_default_verified = true }
+source_type = "agent-researched"
+playbook_notes = "Follow the official Bassetlaw careers link to its current iTrent portal and enumerate every current profile."
+expected_host_service = "Bassetlaw District Council"
+completeness_evidence = "Portal-reported current total reconciled to unique vacancy profiles."
 
 [[sources]]
 source_id = "gedling-direct"
 display_name = "Gedling Borough Council — current vacancies"
 employer_type = "Council"
 mandatory = true
-adapter = "gedling"
 official_entry_url = "https://apps.gedling.gov.uk/jobs/default.aspx"
-configuration = { organization = "Gedling Borough Council", location_default = "Gedling", location_default_verified = true, detail_links = true }
+source_type = "agent-researched"
+playbook_notes = "Use the current official Gedling vacancies index and each linked advert."
+expected_host_service = "Gedling Borough Council"
+completeness_evidence = "All current vacancy links or an explicit zero-result statement recorded."
 
 [[sources]]
 source_id = "mansfield-itrent"
 display_name = "Mansfield District Council — iTrent"
 employer_type = "Council"
 mandatory = true
-adapter = "itrent"
 official_entry_url = "https://ce0930li.webitrent.com/ce0930li_webrecruitment/wrd/run/ETREC179GF.open?WVID=4128782IuI"
-configuration = { organization = "Mansfield District Council", wvid = "4128782IuI", location_default = "Mansfield", location_default_verified = true }
+source_type = "agent-researched"
+playbook_notes = "Use the Mansfield iTrent portal, inspect all pages/profiles and preserve the actual Mansfield work base."
+expected_host_service = "Mansfield District Council"
+completeness_evidence = "Portal-reported current total reconciled to unique vacancy profiles."
 
 [[sources]]
 source_id = "newark-sherwood-itrent"
 display_name = "Newark & Sherwood District Council — iTrent"
 employer_type = "Council"
 mandatory = true
-adapter = "itrent"
 official_entry_url = "https://ce0799li.webitrent.com/ce0799li_webrecruitment/wrd/run/ETREC179GF.open?WVID=3373962BPM"
-configuration = { organization = "Newark & Sherwood District Council", wvid = "3373962BPM", location_default = "Newark & Sherwood", location_default_verified = true }
+source_type = "agent-researched"
+playbook_notes = "Use the Newark & Sherwood iTrent portal and verify the actual Nottinghamshire base for every profile."
+expected_host_service = "Newark & Sherwood District Council"
+completeness_evidence = "Portal-reported current total reconciled to unique vacancy profiles."
 
 [[sources]]
 source_id = "rushcliffe-direct"
 display_name = "Rushcliffe Borough Council — current jobs"
 employer_type = "Council"
 mandatory = true
-adapter = "direct_council"
 official_entry_url = "https://www.rushcliffe.gov.uk/about-us/working-for-rbc/jobs/"
-configuration = { organization = "Rushcliffe Borough Council", location_default = "Rushcliffe", location_default_verified = true, detail_links = true }
+source_type = "agent-researched"
+playbook_notes = "Use the current official Rushcliffe jobs route and follow any linked recruitment service."
+expected_host_service = "Rushcliffe Borough Council"
+completeness_evidence = "All current vacancy links and pagination/load-more controls, or an explicit zero-result statement."
 
 [[sources]]
 source_id = "nuh-nhs"
 display_name = "Nottingham University Hospitals NHS Trust"
 employer_type = "NHS"
 mandatory = true
-adapter = "nhs"
 official_entry_url = "https://www.nuh.nhs.uk/jobs"
-configuration = { employer = "Nottingham University Hospitals NHS Trust", search_url = "https://www.jobs.nhs.uk/candidate/search/results", query = "Nottingham University Hospitals NHS Trust", search_params = { employer = "Nottingham University Hospitals NHS Trust", location = "Nottinghamshire" }, location_default = "Nottingham" }
+source_type = "agent-researched"
+playbook_notes = "Treat the Trust page as an entry point; search the exact underlying Trac, HealthJobsUK or NHS Jobs employer route, all sectors and pages."
+expected_host_service = "Nottingham University Hospitals NHS Trust, QMC and City Hospital services"
+completeness_evidence = "Exact-employer current total or all underlying pages/sectors reconciled; actual base verified per advert."
 
 [[sources]]
 source_id = "notts-healthcare-nhs"
 display_name = "Nottinghamshire Healthcare NHS Foundation Trust"
 employer_type = "NHS"
 mandatory = true
-adapter = "nhs"
 official_entry_url = "https://www.nottinghamshirehealthcare.nhs.uk/working-for-us/"
-configuration = { employer = "Nottinghamshire Healthcare NHS Foundation Trust", search_url = "https://www.jobs.nhs.uk/candidate/search/results", query = "Nottinghamshire Healthcare NHS Foundation Trust", search_params = { employer = "Nottinghamshire Healthcare NHS Foundation Trust", location = "Nottinghamshire" }, location_default = "Nottinghamshire" }
+source_type = "agent-researched"
+playbook_notes = "Follow the exact Trust route into Trac, HealthJobsUK or NHS Jobs and distinguish the Trust host from broad NHS search results."
+expected_host_service = "Nottinghamshire Healthcare NHS Foundation Trust"
+completeness_evidence = "Exact-employer current total or all underlying pages/sectors reconciled; actual base verified per advert."
 
 [[sources]]
 source_id = "sherwood-forest-nhs"
 display_name = "Sherwood Forest Hospitals NHS Foundation Trust"
 employer_type = "NHS"
 mandatory = true
-adapter = "nhs"
 official_entry_url = "https://www.sfh-tr.nhs.uk/work-for-us/"
-configuration = { employer = "Sherwood Forest Hospitals NHS Foundation Trust", search_url = "https://www.jobs.nhs.uk/candidate/search/results", query = "Sherwood Forest Hospitals NHS Foundation Trust", search_params = { employer = "Sherwood Forest Hospitals NHS Foundation Trust", location = "Nottinghamshire" }, location_default = "Mansfield" }
+source_type = "agent-researched"
+playbook_notes = "Search the Trust recruitment ecosystem for exact host/service association and Nottinghamshire bases."
+expected_host_service = "Sherwood Forest Hospitals NHS Foundation Trust"
+completeness_evidence = "Exact-employer current total or all underlying pages/sectors reconciled; actual base verified per advert."
 
 [[sources]]
 source_id = "university-nottingham"
 display_name = "University of Nottingham — vacancies"
 employer_type = "Education"
 mandatory = true
-adapter = "university_nottingham"
 official_entry_url = "https://jobs.nottingham.ac.uk/vacancies.aspx?cat=-1"
-configuration = { organization = "University of Nottingham", location_default = "Nottingham" }
+source_type = "agent-researched"
+playbook_notes = "Enumerate the current University vacancies, verify Nottinghamshire work bases, exclude internal/overseas/non-employment items and resolve missing deadlines from the advert."
+expected_host_service = "University of Nottingham"
+completeness_evidence = "All current result pages and advert links inspected; any reported total reconciled."
 
 [[sources]]
 source_id = "ntu-jobtrain"
 display_name = "Nottingham Trent University — Jobtrain"
 employer_type = "Education"
 mandatory = true
-adapter = "ntu_jobtrain"
 official_entry_url = "https://vacancies.ntu.ac.uk/"
-configuration = { organization = "Nottingham Trent University", location_default = "Nottingham", use_browser = true, browser_wait_for = ".job-card", browser_load_more_selector = "#searchResultsLoadMoreBtn" }
+source_type = "agent-researched"
+playbook_notes = "Use the current Jobtrain listing and advert pages, including any current load-more/search mechanism; exclude non-employment items."
+expected_host_service = "Nottingham Trent University"
+completeness_evidence = "All current Jobtrain result pages/load-more records and advert profiles inspected."
 
 [[sources]]
 source_id = "nottingham-college"
 display_name = "Nottingham College — current vacancies"
 employer_type = "Education"
 mandatory = true
-adapter = "direct_council"
 official_entry_url = "https://www.nottinghamcollege.ac.uk/about-us/working-for-us/current-vacancies"
-configuration = { organization = "Nottingham College", detail_links = true, detail_required = true, job_link_pattern = "about-us/working-for-us/current-vacancies/[^/]+$", card_class = "shadow-course-card", browser_wait_for = "#job-vacancies-listing", browser_wait_ms = 5000 }
+source_type = "agent-researched"
+playbook_notes = "Use the official current-vacancies page and its current public XHR/data route; verify each advert detail and Nottinghamshire base."
+expected_host_service = "Nottingham College"
+completeness_evidence = "Rendered/API vacancy total reconciled to all current advert details."
 
 [[sources]]
 source_id = "west-nottinghamshire-college"
 display_name = "West Nottinghamshire College — current vacancies"
 employer_type = "Education"
 mandatory = true
-adapter = "itrent"
 official_entry_url = "https://www.wnc.ac.uk/about-us/work-for-us"
-configuration = { portal_url = "https://vacancies.wnc.ac.uk/ce0999li_webrecruitment/wrd/run/etrec179gf.open?wvid=5245470Prv", organization = "West Nottinghamshire College", host_organization = "West Nottinghamshire College", host_association_verified = true, host_association_type = "direct", host_association_evidence = "official West Nottinghamshire College iTrent recruitment portal", wvid = "5245470Prv", detail_required = true }
+source_type = "agent-researched"
+playbook_notes = "Follow Work for us to the dedicated current recruitment portal and inspect every current profile."
+expected_host_service = "West Nottinghamshire College"
+completeness_evidence = "Portal-reported current total reconciled to unique advert profiles."
 
 [[sources]]
 source_id = "north-notts-rnn"
 display_name = "North Notts College / RNN Group — current vacancies"
 employer_type = "Education"
 mandatory = true
-adapter = "itrent"
-official_entry_url = "https://www.rnngroup.co.uk/working-with-us-for-everyone/"
-configuration = { portal_url = "https://ce0833li.webitrent.com/ce0833li_webrecruitment/wrd/run/ETREC179GF.open?WVID=8759023jQy", organization = "RNN Group", host_organization = "RNN Group", host_association_verified = true, host_association_type = "direct", host_association_evidence = "official RNN Group iTrent recruitment portal", wvid = "8759023jQy", detail_required = true }
+official_entry_url = "https://www.rnngroup.co.uk/working-with-us-for-everyone/vacancies/"
+source_type = "agent-researched"
+playbook_notes = "Follow the current RNN portal; include only North Notts College/RNN roles with a Nottinghamshire base."
+expected_host_service = "RNN Group / North Notts College"
+completeness_evidence = "All current portal profiles inspected and Nottinghamshire-base subset recorded."
 
 [[sources]]
 source_id = "teaching-vacancies"
 display_name = "GOV.UK Teaching Vacancies — Nottinghamshire and Nottingham searches"
 employer_type = "Education"
 mandatory = true
-adapter = "teaching_vacancies"
 official_entry_url = "https://teaching-vacancies.service.gov.uk/jobs?location=nottinghamshire"
-configuration = { queries = ["https://teaching-vacancies.service.gov.uk/jobs?location=nottinghamshire", "https://teaching-vacancies.service.gov.uk/jobs?location=nottingham"], page_param = "page" }
+source_type = "agent-researched"
+playbook_notes = "Complete both Nottinghamshire and Nottingham searches, all pages, and verify each included address and public/state-funded host."
+expected_host_service = "Named state-funded school, academy or academy trust"
+completeness_evidence = "Both query totals/pages reconciled; each published advert has verified address and host."
 
 [[sources]]
 source_id = "ncc-tal-education"
 display_name = "Nottinghamshire TAL — All Vacancies school/trust supplement"
 employer_type = "Education"
 mandatory = true
-adapter = "tal"
 official_entry_url = "https://www.nottinghamshire.gov.uk/jobs-and-working/working-for-us/opportunities-with-us"
-configuration = { board_kind = "all", brand = "brand-3" }
+source_type = "agent-researched"
+playbook_notes = "Use All Vacancies only as the school/trust supplement; classify the actual school/trust host and deduplicate against Teaching Vacancies."
+expected_host_service = "Named state-funded school, academy or academy trust"
+completeness_evidence = "All current All Vacancies pages or indexed official current evidence recorded with TAL IDs."
 
 [[sources]]
 source_id = "nottingham-city-eteach"
 display_name = "Nottingham City Jobs in Schools — eTeach supplement"
 employer_type = "Education"
 mandatory = true
-adapter = "direct_council"
 official_entry_url = "https://www.nottinghamcity.gov.uk/jobs-and-working/jobs-in-schools/"
-configuration = { organization = "Nottingham City school/trust", detail_links = true, allow_organization_from_advert = true }
+source_type = "agent-researched"
+playbook_notes = "Use the City route as discovery, then verify the school/trust host, Nottingham base, fixed deadline and application route."
+expected_host_service = "Named state-funded school, academy or academy trust"
+completeness_evidence = "All current City school vacancy links or explicit current zero-result evidence recorded."
 
 [[sources]]
 source_id = "archway-learning-trust"
 display_name = "Archway Learning Trust — vacancies"
 employer_type = "Education"
 mandatory = true
-adapter = "academy_trust"
 official_entry_url = "https://www.archwaytrust.co.uk/vacancies/"
-configuration = { organization = "Archway Learning Trust", host_organization = "Archway Learning Trust", host_association_verified = true, host_association_type = "shared-service" }
+source_type = "agent-researched"
+playbook_notes = "Use the current official Trust careers route; verify school base and deadline per advert."
+expected_host_service = "Archway Learning Trust or named state-funded school"
+completeness_evidence = "All current Trust vacancy pages or explicit zero-result evidence."
 
 [[sources]]
 source_id = "tapestry-learning-partnership"
 display_name = "Tapestry Learning Partnership — job vacancies"
 employer_type = "Education"
 mandatory = true
-adapter = "academy_trust"
 official_entry_url = "https://tapestrylearningpartnership.org/job-vacancies"
-configuration = { organization = "Tapestry Learning Partnership", host_organization = "Tapestry Learning Partnership", host_association_verified = true, host_association_type = "shared-service" }
+source_type = "agent-researched"
+playbook_notes = "Use the current official Partnership route; verify school base and deadline per advert."
+expected_host_service = "Tapestry Learning Partnership or named state-funded school"
+completeness_evidence = "All current Partnership vacancy pages or explicit zero-result evidence."
 
 [[sources]]
 source_id = "greenwood-academies"
 display_name = "Greenwood Academies Trust — vacancies"
 employer_type = "Education"
 mandatory = true
-adapter = "academy_trust"
 official_entry_url = "https://www.greenwoodacademies.org/vacancies"
-configuration = { organization = "Greenwood Academies Trust", host_organization = "Greenwood Academies Trust", host_association_verified = true, host_association_type = "shared-service" }
+source_type = "agent-researched"
+playbook_notes = "Use the current Trust careers route; verify school base and deadline per advert."
+expected_host_service = "Greenwood Academies Trust or named state-funded school"
+completeness_evidence = "All current Trust vacancy pages or explicit zero-result evidence."
 
 [[sources]]
 source_id = "redhill-academy-trust"
 display_name = "The Redhill Academy Trust — vacancies"
 employer_type = "Education"
 mandatory = true
-adapter = "academy_trust"
 official_entry_url = "https://www.redhillacademytrust.org.uk/vacancies"
-configuration = { organization = "The Redhill Academy Trust", host_organization = "The Redhill Academy Trust", host_association_verified = true, host_association_type = "shared-service" }
+source_type = "agent-researched"
+playbook_notes = "Use the current Trust careers route; verify school base and deadline per advert."
+expected_host_service = "The Redhill Academy Trust or named state-funded school"
+completeness_evidence = "All current Trust vacancy pages or explicit zero-result evidence."
 
 [[sources]]
 source_id = "spencer-academies"
 display_name = "The Spencer Academies Trust — work with us"
 employer_type = "Education"
 mandatory = true
-adapter = "academy_trust"
 official_entry_url = "https://www.spencertrust.org.uk/work-with-us"
-configuration = { organization = "The Spencer Academies Trust", host_organization = "The Spencer Academies Trust", host_association_verified = true, host_association_type = "shared-service", job_link_pattern = "page/\\?title=Job\\+Title", detail_links = true }
+source_type = "agent-researched"
+playbook_notes = "Use the current Trust route and any linked advert service; verify the named school and base."
+expected_host_service = "The Spencer Academies Trust or named state-funded school"
+completeness_evidence = "All current Trust vacancy pages or explicit zero-result evidence."
 
 [[sources]]
 source_id = "diverse-academies"
 display_name = "Diverse Academies Trust — job vacancies"
 employer_type = "Education"
 mandatory = true
-adapter = "academy_trust"
 official_entry_url = "https://www.diverseacademies.org.uk/job-vacancies/"
-configuration = { organization = "Diverse Academies Trust", host_organization = "Diverse Academies Trust", host_association_verified = true, host_association_type = "shared-service" }
+source_type = "agent-researched"
+playbook_notes = "Use the current Trust careers route; verify school base and deadline per advert."
+expected_host_service = "Diverse Academies Trust or named state-funded school"
+completeness_evidence = "All current Trust vacancy pages or explicit zero-result evidence."
 
 [[sources]]
 source_id = "flying-high-partnership"
 display_name = "Flying High Partnership — career opportunities"
 employer_type = "Education"
 mandatory = true
-adapter = "academy_trust"
 official_entry_url = "https://www.flyinghighpartnership.co.uk/"
-configuration = { organization = "Flying High Partnership", host_organization = "Flying High Partnership", host_association_verified = true, host_association_type = "shared-service" }
+source_type = "agent-researched"
+playbook_notes = "Find the current Partnership vacancy route from the official site; verify school base and deadline."
+expected_host_service = "Flying High Partnership or named state-funded school"
+completeness_evidence = "All current Partnership vacancy pages or explicit zero-result evidence."
 
 [[sources]]
 source_id = "minster-trust"
 display_name = "Minster Trust for Education — careers"
 employer_type = "Education"
 mandatory = true
-adapter = "academy_trust"
 official_entry_url = "https://www.mitretrust.org.uk/careers"
-configuration = { organization = "Minster Trust for Education", host_organization = "Minster Trust for Education", host_association_verified = true, host_association_type = "shared-service" }
+source_type = "agent-researched"
+playbook_notes = "Use the current Trust careers route and verify school base, deadline and application destination."
+expected_host_service = "Minster Trust for Education or named state-funded school"
+completeness_evidence = "All current Trust vacancy pages or explicit zero-result evidence."
 
 [[sources]]
 source_id = "nova-education-trust"
 display_name = "Nova Education Trust — careers"
 employer_type = "Education"
 mandatory = true
-adapter = "academy_trust"
 official_entry_url = "https://www.novaeducationtrust.net/"
-configuration = { organization = "Nova Education Trust", host_organization = "Nova Education Trust", host_association_verified = true, host_association_type = "shared-service" }
+source_type = "agent-researched"
+playbook_notes = "Find the current Trust vacancy route from the official site; verify school base and deadline."
+expected_host_service = "Nova Education Trust or named state-funded school"
+completeness_evidence = "All current Trust vacancy pages or explicit zero-result evidence."
 
 [[sources]]
 source_id = "diocese-southwell-nottingham-mat"
 display_name = "Diocese of Southwell and Nottingham Multi Academy Trust — careers"
 employer_type = "Education"
 mandatory = true
-adapter = "academy_trust"
 official_entry_url = "https://www.snmat.org.uk/"
-configuration = { organization = "Diocese of Southwell and Nottingham Multi Academy Trust", host_organization = "Diocese of Southwell and Nottingham Multi Academy Trust", host_association_verified = true, host_association_type = "shared-service" }
+source_type = "agent-researched"
+playbook_notes = "Find the current MAT careers route from the official site; verify school base and deadline."
+expected_host_service = "Diocese of Southwell and Nottingham Multi Academy Trust or named state-funded school"
+completeness_evidence = "All current MAT vacancy pages or explicit zero-result evidence."
 
 [[sources]]
 source_id = "east-midlands-education-trust"
 display_name = "East Midlands Education Trust — vacancies"
 employer_type = "Education"
 mandatory = true
-adapter = "academy_trust"
 official_entry_url = "https://www.emet.academy/vacancies"
-configuration = { organization = "East Midlands Education Trust", host_organization = "East Midlands Education Trust", host_association_verified = true, host_association_type = "shared-service" }
+source_type = "agent-researched"
+playbook_notes = "Use the current Trust vacancy route; verify school base and deadline."
+expected_host_service = "East Midlands Education Trust or named state-funded school"
+completeness_evidence = "All current Trust vacancy pages or explicit zero-result evidence."
 
 [[sources]]
 source_id = "nottingham-cvs"
 display_name = "Nottingham CVS — Jobs"
 employer_type = "VCSE"
 mandatory = true
-adapter = "nottingham_cvs"
 official_entry_url = "https://www.nottinghamcvs.co.uk/news-and-events/jobs"
-configuration = { location_default = "Nottinghamshire-wide", detail_links = true, job_link_pattern = "(personio\\.com/job/|equation\\.org\\.uk/|careers\\.trentbridge\\.co\\.uk/job/|broadway\\.org\\.uk/|emmanuelhouse\\.org\\.uk/about-us/jobs/|nottscountyfoundation\\.org\\.uk/about/join-us/)" }
+source_type = "agent-researched"
+playbook_notes = "Use Nottingham CVS as a credible local VCSE discovery source, then verify each organisation's current primary advert."
+expected_host_service = "Actual qualifying Nottinghamshire VCSE organisation"
+completeness_evidence = "All current CVS job links inspected and each selected advert verified at its primary destination."
 
 [[sources]]
 source_id = "other-nhs-nottinghamshire"
 display_name = "Other NHS Nottinghamshire employers — optional discovery"
 employer_type = "NHS"
 mandatory = false
-adapter = "nhs"
 official_entry_url = "https://www.jobs.nhs.uk/candidate/search/results"
-configuration = { employer = "", search_url = "https://www.jobs.nhs.uk/candidate/search/results", query = "Nottinghamshire NHS", search_params = { location = "Nottinghamshire" }, location_default = "Nottinghamshire", narrow_to_nhs = true }
+source_type = "agent-researched"
+playbook_notes = "Optional exact-employer discovery only; include a role when the NHS host/service and Nottinghamshire base are explicit."
+expected_host_service = "Named NHS employer/service with Nottinghamshire base"
+completeness_evidence = "Search route and any reported total recorded; do not treat broad results as complete exact-employer evidence."

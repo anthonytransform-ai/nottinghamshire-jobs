@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "date_checked": "2026-09-15",
+  "sources": [
+    {
+      "source_id": "example-council",
+      "status": "Complete",
+      "retrieval_method": "codex-agent-research",
+      "verification_method": "official-primary-advert",
+      "source_total": 1,
+      "captured_total": 1,
+      "source_url": "https://example.test/jobs",
+      "checked_at": "2026-09-15T09:00:00+01:00",
+      "warnings": [],
+      "errors": [],
+      "records": [
+        {
+          "source_record_id": "INTERNAL-1",
+          "title": "Environmental Health Officer",
+          "advertised_employer": "Agency Partner",
+          "host_organization": "Example Council",
+          "host_association_verified": true,
+          "host_association_type": "agency",
+          "host_association_evidence": "The official advert names Example Council as the service host.",
+          "location": "Nottingham",
+          "closing_date": "2027-01-31",
+          "closing_time": "",
+          "contract": "Permanent",
+          "work_pattern": "Full-time",
+          "salary": "£40,000 per annum",
+          "apply_url": "https://example.test/jobs/INTERNAL-1",
+          "job_reference": "PUBLIC-1",
+          "source_url": "https://example.test/jobs/INTERNAL-1",
+          "location_area": "Nottingham",
+          "job_area": "Planning, Environment & Regulatory",
+          "description": "Paid employment serving the council environmental health service.",
+          "evidence": {
+            "official_detail_url": "https://example.test/jobs/INTERNAL-1",
+            "checked_at": "2026-09-15T09:00:00+01:00",
+            "host_evidence": "Example Council named in the advert"
+          }
+        }
+      ]
+    },
+    {
+      "source_id": "empty-source",
+      "status": "Complete",
+      "retrieval_method": "codex-agent-research",
+      "verification_method": "official-zero-result",
+      "source_total": 0,
+      "captured_total": 0,
+      "source_url": "https://empty.test/jobs",
+      "checked_at": "2026-09-15T09:00:00+01:00",
+      "warnings": [],
+      "errors": [],
+      "records": []
+    }
+  ]
+}

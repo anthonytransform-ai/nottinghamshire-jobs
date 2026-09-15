@@ -1,10 +1,9 @@
-"""TOML-driven source registry and adapter factory."""
+"""TOML-driven source registry and explicit stable-collector registry."""
 
 from __future__ import annotations
 
 import tomllib
 from pathlib import Path
-from typing import Callable
 
 from .models import SourceSpec
 
@@ -40,37 +39,28 @@ class SourceRegistry:
         except KeyError as exc:
             raise KeyError(f"unknown source_id: {source_id}") from exc
 
-    def adapters(self) -> list[object]:
-        from .adapters.academy_trust import AcademyTrustAdapter
-        from .adapters.direct_council import DirectCouncilAdapter
-        from .adapters.gedling import GedlingAdapter
-        from .adapters.itrent import ITrentAdapter
-        from .adapters.nhs import NHSAdapter
-        from .adapters.nottingham_cvs import NottinghamCVSAdapter
-        from .adapters.ntu_jobtrain import NTUJobtrainAdapter
-        from .adapters.oracle_hcm import OracleHCMAdapter
-        from .adapters.tal import TALAdapter
-        from .adapters.teaching_vacancies import TeachingVacanciesAdapter
-        from .adapters.university_nottingham import UniversityNottinghamAdapter
+    @property
+    def agent_researched(self) -> list[SourceSpec]:
+        return [source for source in self.sources if source.source_type == "agent-researched"]
 
-        factories: dict[str, Callable[[SourceSpec], object]] = {
-            "academy_trust": AcademyTrustAdapter,
-            "direct_council": DirectCouncilAdapter,
-            "gedling": GedlingAdapter,
-            "itrent": ITrentAdapter,
-            "nhs": NHSAdapter,
-            "nottingham_cvs": NottinghamCVSAdapter,
-            "ntu_jobtrain": NTUJobtrainAdapter,
-            "oracle_hcm": OracleHCMAdapter,
-            "tal": TALAdapter,
-            "teaching_vacancies": TeachingVacanciesAdapter,
-            "university_nottingham": UniversityNottinghamAdapter,
-        }
+    def collectors(self) -> list[object]:
+        """Return only explicitly retained stable collectors.
+
+        The weekly default is agent research plus structured ingestion.  A
+        collector is opt-in metadata in the registry, never a requirement for
+        a source to be represented or audited.
+        """
+
+        from .adapters.oracle_hcm import OracleHCMAdapter
+
+        factories = {"oracle_hcm": OracleHCMAdapter}
         result: list[object] = []
         for source in self.sources:
+            if not source.collector:
+                continue
             try:
-                factory = factories[source.adapter]
+                factory = factories[source.collector]
             except KeyError as exc:
-                raise ValueError(f"no adapter registered for {source.adapter!r}") from exc
+                raise ValueError(f"no stable collector registered for {source.collector!r}") from exc
             result.append(factory(source))
         return result

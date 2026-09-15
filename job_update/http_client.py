@@ -1,4 +1,4 @@
-"""Conservative standard-library HTTP client used by source adapters."""
+"""Conservative standard-library HTTP client used by stable collectors."""
 
 from __future__ import annotations
 
@@ -33,8 +33,8 @@ class HttpResponse:
 class HttpClient:
     """A bounded, run-local cached HTTP client.
 
-    The client deliberately returns structured failures. Adapters decide whether
-    a failure is recoverable through browser fallback or must become Blocked.
+    The client deliberately returns structured failures. The retained stable
+    collector decides whether a failure can be retried or must become Blocked.
     """
 
     def __init__(

@@ -1,1 +1,1 @@
-"""Configured source adapters."""
+"""Explicitly retained stable source collectors."""

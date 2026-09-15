@@ -1,0 +1,19 @@
+[[sources]]
+source_id = "example-council"
+display_name = "Example Council"
+employer_type = "Council"
+mandatory = true
+official_entry_url = "https://example.test/jobs"
+source_type = "agent-researched"
+expected_host_service = "Example Council"
+completeness_evidence = "Fixture source total reconciled to the captured advert."
+
+[[sources]]
+source_id = "empty-source"
+display_name = "Empty Source"
+employer_type = "VCSE"
+mandatory = true
+official_entry_url = "https://empty.test/jobs"
+source_type = "agent-researched"
+expected_host_service = "Empty Source"
+completeness_evidence = "Fixture source explicitly verified zero current results."

@@ -21,8 +21,13 @@ class SourceSpec:
     display_name: str
     employer_type: str
     mandatory: bool
-    adapter: str
     official_entry_url: str
+    source_type: str = "agent-researched"
+    collector: str = ""
+    playbook_notes: str = ""
+    expected_host_service: str = ""
+    completeness_evidence: str = ""
+    stable_data_route: str = ""
     configuration: dict[str, Any] = field(default_factory=dict)
 
 
@@ -50,6 +55,8 @@ class RawVacancy:
     host_association_evidence: str = ""
     description_raw: str = ""
     retrieved_at: str = ""
+    location_area_raw: str = ""
+    job_area_raw: str = ""
     evidence: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -197,9 +204,9 @@ class Exclusion:
 class RunContext:
     date_checked: date
     run_dir: Any
-    http_client: Any
-    browser: Any
     registry: Any
+    http_client: Any = None
+    browser: Any = None
     live: bool = True
     allow_browser: bool = True
     now: datetime | None = None

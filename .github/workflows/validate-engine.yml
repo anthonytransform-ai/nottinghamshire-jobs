@@ -34,5 +34,15 @@ jobs:
       - name: Compile engine
         run: python -m compileall -q job_update scripts
 
+      - name: Check registry and local readiness
+        run: |
+          python -m job_update sources
+          python -m job_update doctor
+
       - name: Run fixture suite
         run: python -m unittest discover -s tests -v
+
+      - name: Run structured-ingestion CLI smoke test
+        run: |
+          python -m job_update --registry tests/fixtures/agent_registry.toml ingest --date 2026-09-15 --input tests/fixtures/agent_source_results.json
+          python -m job_update --registry tests/fixtures/agent_registry.toml build --date 2026-09-15
