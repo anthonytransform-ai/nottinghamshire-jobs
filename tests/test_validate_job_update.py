@@ -108,6 +108,20 @@ class CandidateValidationTests(unittest.TestCase):
         result = validate_csv_bytes(data)
         self.assertEqual(2, result["row_count"])
 
+    def test_different_jobs_may_share_one_recruitment_page(self):
+        first = deepcopy(BASE_ROW)
+        first.update(
+            job_reference="",
+            job_title="Administrator",
+            apply_url="https://example.org/vacancies",
+            source_url="https://example.org/vacancies",
+        )
+        second = deepcopy(first)
+        second.update(job_title="Planner")
+        data = csv_bytes([first, second])
+        result = validate_csv_bytes(data)
+        self.assertEqual(2, result["row_count"])
+
     def test_zero_rows_allowed_with_declared_date(self):
         data = csv_bytes([])
         result = validate_csv_bytes(data, declared_date="2026-09-07")
