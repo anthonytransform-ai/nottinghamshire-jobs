@@ -19,9 +19,48 @@
     'source_url'
   ];
 
+  function buildApplyUrlCounts(jobs) {
+    const counts = new Map();
+
+    jobs.forEach((job) => {
+      const url = String(job.apply_url ?? '').trim();
+      if (!url) {
+        return;
+      }
+      counts.set(url, (counts.get(url) || 0) + 1);
+    });
+
+    return counts;
+  }
+
+  function getApplyLinkPresentation(job, applyUrlCounts) {
+    const url = String(job.apply_url ?? '').trim();
+    const isShared = Boolean(url) && (applyUrlCounts.get(url) || 0) > 1;
+    const title = String(job.job_title ?? '').trim() || 'Untitled vacancy';
+    const reference = String(job.job_reference ?? '').trim();
+
+    return {
+      isShared,
+      label: isShared ? 'Open vacancies page' : 'View & Apply',
+      ariaLabel: isShared
+        ? `Open vacancies page: ${title}${reference ? `. Reference ${reference}` : ''}`
+        : `View & Apply: ${title}`,
+      reference: isShared ? reference : ''
+    };
+  }
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+      buildApplyUrlCounts,
+      getApplyLinkPresentation
+    };
+    return;
+  }
+
   const state = {
     allJobs: [],
     currentJobs: [],
+    applyUrlCounts: new Map(),
     londonNow: null,
     loaded: false
   };
@@ -279,11 +318,16 @@
     const location = displayValue(job.location || job.location_area, 'Location not stated');
     const salary = displayValue(job.salary, 'Salary not stated');
     const urgency = urgencyLabel(job, state.londonNow);
+    const linkPresentation = getApplyLinkPresentation(job, state.applyUrlCounts);
+    const referenceHint = linkPresentation.reference
+      ? `<p class="job-row__reference">Reference: <span>${escapeHtml(linkPresentation.reference)}</span></p>`
+      : '';
 
     return `<article class="job-row">
       <div class="job-row__primary">
         <h3 class="job-title">${escapeHtml(displayValue(job.job_title, 'Untitled vacancy'))}</h3>
         <p class="job-organization">${escapeHtml(displayValue(job.organization, 'Organisation not stated'))}</p>
+        ${referenceHint}
         <p class="job-area">${icon('briefcase')}<span>${escapeHtml(displayValue(job.job_area, 'Job area not stated'))}</span></p>
       </div>
       <div class="job-row__location-group">
@@ -292,7 +336,7 @@
       </div>
       <div class="job-row__salary">${escapeHtml(salary)}</div>
       <div class="job-row__deadline">${urgency ? `<span class="job-row__urgency">${escapeHtml(urgency)}</span>` : ''}<time class="job-row__date" datetime="${escapeHtml(job.closing_date)}">${escapeHtml(formatClosingDate(job))}</time></div>
-      <a class="job-apply" href="${escapeHtml(applyUrl)}" target="_blank" rel="noopener noreferrer" aria-label="View &amp; Apply: ${escapeHtml(displayValue(job.job_title, 'Untitled vacancy'))}">View &amp; Apply</a>
+      <a class="job-apply" href="${escapeHtml(applyUrl)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(linkPresentation.ariaLabel)}">${escapeHtml(linkPresentation.label)}</a>
     </article>`;
   }
 
@@ -420,6 +464,7 @@
   function onLoaded(records) {
     state.londonNow = getLondonNow();
     state.allJobs = records.filter((job) => job.apply_url || job.job_title || job.organization);
+    state.applyUrlCounts = buildApplyUrlCounts(state.allJobs);
     state.currentJobs = visibleJobs(state.allJobs, state.londonNow);
     state.loaded = true;
     loadSummary();
