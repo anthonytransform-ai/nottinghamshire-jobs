@@ -425,6 +425,18 @@ main {
   line-height: 1.3;
 }
 
+.job-row__reference {
+  margin: 4px 0 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.job-row__reference span {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
 .job-area {
   margin-top: 4px;
   color: var(--color-link);
