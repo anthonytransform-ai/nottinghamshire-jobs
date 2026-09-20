@@ -54,13 +54,36 @@ The `employer_type` field accepts these values:
 
 The validator also enforces the controlled values for job area, location area, contract type and work pattern defined by the Job Update project.
 
+## Public feed contract
+
+`jobs.csv` is also the public read-only feed for approved consumers such as My Next Step. Consumers should treat it as a current discovery feed rather than a vacancy-history database.
+
+- Each published file is a complete replacement of the current verified set, not an append-only history.
+- `job_reference` is optional. When present it is useful source identity, but consumers must not assume every source provides one.
+- `apply_url` may point to an individual advert/application route or to a shared employer recruitment/vacancies page used by several distinct jobs.
+- Distinct jobs are allowed to share the same `apply_url`; consumers must not use that URL alone as vacancy identity.
+- `source_url` is the strongest retained source route from the weekly verification process and may be the same as or different from `apply_url`.
+- `date_checked` records when Transform verified the row for that weekly update. It does not guarantee that an employer cannot later amend or withdraw a vacancy before its stated closing date.
+- Missing optional source facts remain missing. Consumers must not invent references, deep links, requirements or lifecycle state to fill gaps.
+- Nottinghamshire Jobs is a public provider only. Participant-private profile, evidence, Match or application data from My Next Step must never be written back to this repository or feed.
+
+The public website uses the same rule: if several current feed rows share one `apply_url`, the row remains visible but the action is labelled **Open vacancies page** and any available `job_reference` is shown as an additional lookup cue.
+
 ## Validation
 
-Run the standard-library test suite with:
+Run the standard-library Python test suite with:
 
 ```powershell
 py -m unittest discover -s tests -v
 ```
+
+Run the browser link-policy regression tests with Node's built-in test runner:
+
+```powershell
+node --test tests/job-link-policy.test.js
+```
+
+No package manager or third-party JavaScript test framework is required.
 
 Validate a complete candidate CSV with:
 
@@ -151,5 +174,6 @@ Analytics is independent of the vacancy-data publication pipeline. Normal weekly
 - `manifest.webmanifest` — install name, standalone display settings and app metadata.
 - `icons/` — Android, desktop and iPhone Home Screen icons derived from the supplied logo.
 - `.github/workflows/validate-jobs-pr.yml` — read-only PR validation gate for routine Job Updates.
+- `.github/workflows/validate-source-pr.yml` — source-change regression checks; it does not run for a routine `jobs.csv`-only Job Update.
 - `scripts/validate_job_update.py` — deterministic fail-closed whole-file CSV validator.
-- `tests/` — standard-library validator regression tests.
+- `tests/` — Python validator tests plus Node standard-library link-policy regression tests.
