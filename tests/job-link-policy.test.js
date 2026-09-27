@@ -2,9 +2,86 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+  LEGACY_COLUMNS,
+  SUMMARY_COLUMNS,
   buildApplyUrlCounts,
-  getApplyLinkPresentation
+  getApplyLinkPresentation,
+  recordsFromCsv,
+  jobMatchesKeyword,
+  renderSummaryMarkup
 } = require('../app.js');
+
+function csvLine(values) {
+  return values.map((value) => {
+    const text = String(value ?? '');
+    if (/[",\r\n]/.test(text)) {
+      return `"${text.replaceAll('"', '""')}"`;
+    }
+    return text;
+  }).join(',');
+}
+
+function csvFor(columns, row) {
+  return `${csvLine(columns)}\r\n${csvLine(columns.map((column) => row[column] ?? ''))}\r\n`;
+}
+
+const baseRow = {
+  organization: 'Example Council',
+  employer_type: 'Council',
+  job_title: 'Administrator',
+  job_area: 'Administration & Business Support',
+  location: 'Nottingham',
+  location_area: 'Nottingham',
+  closing_date: '2026-10-10',
+  closing_time: '17:00',
+  contract_type: 'Permanent',
+  work_pattern: 'Full-time',
+  salary: '£25,000',
+  apply_url: 'https://example.org/jobs/1',
+  job_reference: 'REF-1',
+  date_checked: '2026-09-27',
+  source_url: 'https://example.org/jobs/1',
+  job_summary: 'Coordinate records, respond to enquiries and support the team with day-to-day administration.'
+};
+
+test('legacy 15-column feed parses and supplies a blank job_summary', () => {
+  const [record] = recordsFromCsv(csvFor(LEGACY_COLUMNS, baseRow));
+  assert.equal(record.job_title, 'Administrator');
+  assert.equal(record.job_summary, '');
+});
+
+test('new 16-column feed parses job_summary including commas and quotes', () => {
+  const row = {
+    ...baseRow,
+    job_summary: 'Coordinate records, answer calls and support the "first response" process.'
+  };
+  const [record] = recordsFromCsv(csvFor(SUMMARY_COLUMNS, row));
+  assert.equal(record.job_summary, row.job_summary);
+});
+
+test('unsupported or malformed schemas fail closed', () => {
+  const wrongColumns = [...LEGACY_COLUMNS.slice(0, -1), 'job_summary'];
+  assert.throws(() => recordsFromCsv(csvFor(wrongColumns, baseRow)), /supported 15- or 16-column contract/);
+  assert.throws(() => recordsFromCsv(`${csvLine(SUMMARY_COLUMNS)}\r\nonly,three,fields\r\n`), /has 3 fields/);
+});
+
+test('summary text is included in keyword matching', () => {
+  assert.equal(jobMatchesKeyword(baseRow, 'day-to-day administration'), true);
+  assert.equal(jobMatchesKeyword(baseRow, 'clinical theatre'), false);
+});
+
+test('summary markup is rendered only when a summary is present', () => {
+  const present = renderSummaryMarkup(baseRow);
+  assert.match(present, /What you'd do/);
+  assert.match(present, /Coordinate records/);
+  assert.equal(renderSummaryMarkup({ ...baseRow, job_summary: '' }), '');
+});
+
+test('summary markup escapes source text before rendering', () => {
+  const markup = renderSummaryMarkup({ ...baseRow, job_summary: '<script>alert("x")</script>' });
+  assert.doesNotMatch(markup, /<script>/);
+  assert.match(markup, /&lt;script&gt;/);
+});
 
 test('shared application URLs are identified without collapsing distinct jobs', () => {
   const sharedUrl = 'https://example.org/vacancies';
