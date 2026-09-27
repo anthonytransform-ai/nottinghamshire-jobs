@@ -1,94 +1,64 @@
-# Nottinghamshire Job Opportunities — MVP Product & Design Brief
+# Nottinghamshire Job Opportunities — Product & Design Brief
 
 **Organisation:** Transform Training  
 **Project:** Job Update public website  
-**Version:** MVP / V1  
+**Version:** V1.1 — role-summary compatibility migration  
 **Primary audience:** Job seekers and Transform Training service users in Nottinghamshire  
 **Publication model:** Static public website powered by a replaceable `jobs.csv` file  
-**Hosting target:** GitHub Pages  
-**Technology:** Plain HTML, CSS and JavaScript. No framework, backend, database, login or AI.
+**Hosting:** GitHub Pages  
+**Technology:** Plain HTML, CSS and JavaScript. No framework, backend, database, login or runtime AI.
 
 ---
 
-# 1. Product Goal
+# 1. Product goal
 
-Create a very simple public webpage where job seekers can quickly find current paid vacancies in Nottinghamshire without scrolling through a long newsletter list.
+Provide a simple public page where job seekers can quickly find current paid vacancies in Nottinghamshire, understand the basic nature of a role before opening the employer advert, and then continue to the official source.
 
-The website becomes the main public vacancy list.
+The intended journey is:
 
-Transform Training's newsletter should only need to tell users that the job list has been updated and provide the permanent website link.
+> **filter to opportunities that may interest me → quickly understand what each job mainly involves → choose one to explore on the employer's official advert**
 
-The site must be:
+The site must remain easy to search, accessible, responsive, fast, simple to maintain and independent of any runtime AI or server-side application.
 
-- easy for service users to search and filter;
-- clear on desktop and mobile;
-- fast to load;
-- accessible;
-- simple to maintain;
-- easy to update weekly by replacing one CSV file;
-- independent of AI at browsing time;
-- independent of any database or server-side application.
+`job_summary` is a discovery/orientation aid only. It is not a suitability assessment, eligibility decision, recommendation, person specification or replacement for the official advert.
 
 ---
 
-# 2. Core Publishing Workflow
+# 2. Publishing and schema migration
 
-The weekly workflow should be:
+The normal weekly administrator task remains **replace one file: `jobs.csv`**. Website source code should not need editing during an ordinary Job Update after this migration is complete.
 
-1. Run the Job Update research process.
-2. Produce a verified website-ready `jobs.csv`.
-3. Replace the existing `jobs.csv` in the GitHub repository.
-4. Commit/publish the change.
-5. GitHub Pages automatically serves the updated vacancy list at the same permanent URL.
+The schema change is deliberately staged:
 
-The website code should not need editing during a normal weekly update.
+## Phase 1 — compatibility preparation
 
----
+- The public `jobs.csv` remains the existing 15-column feed.
+- The browser must accept both the legacy 15-column header and the proposed 16-column header.
+- For a legacy row, the browser treats `job_summary` as blank.
+- The deterministic validator may accept either exact header during this short transition so existing weekly publication remains possible.
+- A 16-column feed must **not** be published merely because the Nottinghamshire Jobs website is ready.
 
-# 3. Technical Architecture
+## Phase 2 — feed cutover
 
-Use only:
+Only after Anthony confirms approved downstream consumers are ready:
 
-- `index.html`
-- `styles.css`
-- `app.js`
-- `jobs.csv`
-- `README.md`
+- publish the first fully audited 16-column `jobs.csv`;
+- verify the public CSV, this website and approved downstream consumers;
+- verify row count, update date and checksum through the existing publication process.
 
-Recommended repository structure:
+## Phase 3 — final canonical contract
 
-```text
-nottinghamshire-jobs/
-├── index.html
-├── styles.css
-├── app.js
-├── jobs.csv
-└── README.md
-```
+After successful cutover:
 
-Do not introduce:
-
-- React;
-- Vue;
-- Angular;
-- npm/pnpm/yarn;
-- a bundler;
-- a database;
-- Firebase/Supabase;
-- authentication;
-- serverless functions;
-- an AI API;
-- analytics unless added later by explicit request.
-
-All filtering and sorting should happen client-side in the browser.
+- routine publication validation must require the final 16-column contract;
+- browser legacy-read compatibility may remain if useful and low-risk;
+- ordinary weekly Job Update PRs return to changing `jobs.csv` only.
 
 ---
 
-# 4. Website Data Contract
+# 3. Data contract
 
-Load vacancy data from `jobs.csv`.
-
-Use these columns in exactly this order:
+The final canonical public feed appends `job_summary` as the last column:
 
 ```text
 organization
@@ -106,772 +76,252 @@ apply_url
 job_reference
 date_checked
 source_url
+job_summary
 ```
 
-## Controlled values
+During Phase 1 only, the legacy header ending at `source_url` remains valid for publication.
 
-### employer_type
+Existing controlled values for `employer_type`, `job_area`, `location_area`, `contract_type`, `work_pattern`, dates, times, URLs, duplicate control and deterministic sorting remain unchanged.
 
-Use only:
+## `job_summary` contract
 
-- Council
-- NHS
-- VCSE
-- Education
-
-### job_area
-
-Use exactly one of:
-
-- Administration & Business Support
-- Care & Support
-- Children & Young People
-- Community & Outreach
-- Customer Service
-- Education & Training
-- Finance & Procurement
-- Health & Clinical
-- HR & People
-- Housing & Homelessness
-- IT & Digital
-- Legal & Governance
-- Management & Leadership
-- Planning, Environment & Regulatory
-- Property, Facilities & Operations
-- Transport & Driving
-- Leisure, Sport & Culture
-- Other
-
-### location_area
-
-Use only:
-
-- Nottingham
-- Broxtowe
-- Ashfield
-- Bassetlaw
-- Gedling
-- Mansfield
-- Newark & Sherwood
-- Rushcliffe
-- Nottinghamshire-wide
-- Multiple Nottinghamshire locations
-
-### contract_type
-
-Use only:
-
-- Permanent
-- Fixed-term
-- Temporary
-- Apprenticeship
-- Bank/Casual/Sessional
-- Freelance
-- Other
-
-### work_pattern
-
-Use only:
-
-- Full-time
-- Part-time
-- Full-time or Part-time
-- Variable/Sessional
-- Not stated
-
-### dates
-
-`closing_date` and `date_checked` use:
-
-```text
-YYYY-MM-DD
-```
-
-`closing_time` uses:
-
-```text
-HH:MM
-```
-
-only when explicitly supplied. It may otherwise be blank.
-
----
-
-# 5. Automatic Expiry Behaviour
-
-The website must automatically hide a vacancy after its closing deadline.
+Purpose: a concise, plain-language factual explanation of what the person would mainly be doing in the role.
 
 Rules:
 
-1. If `closing_date` is earlier than today's date in Europe/London, do not display the vacancy.
-2. If `closing_date` is today and `closing_time` is present, hide it after that time.
-3. If `closing_date` is today and `closing_time` is blank, keep it visible for the whole date.
-4. Never alter or infer the stored closing date/time.
-5. Automatic expiry is a display behaviour only; `jobs.csv` remains the source dataset until the next weekly replacement.
+- normally around 2–3 sentences / roughly 40–80 words;
+- maximum **650 characters**;
+- plain text, one paragraph;
+- whitespace normalised to single spaces with no line breaks, tabs or control characters;
+- commas and quotation marks are allowed when correctly CSV-quoted;
+- grounded only in current official employer/recruitment content available through the normal verification route;
+- never inferred from the job title alone;
+- may be blank when trustworthy current detail is insufficient or unavailable;
+- a blank summary must not remove an otherwise eligible vacancy.
+
+Do not include suitability language such as “good fit” or “ideal for”, application recommendations, participant-specific language, unsupported claims or a long person-specification list.
 
 ---
 
-# 6. Main User Experience
+# 4. Main user experience
 
 The first screen should make the purpose immediately clear.
 
-Suggested content hierarchy:
+Main heading: **Find current jobs in Nottinghamshire**.
 
-## Header
-
-**Transform Training**
-
-Optional small secondary text:
-
-**Nottinghamshire Job Opportunities**
-
-Do not create a complex navigation menu for V1.
-
-## Main heading
-
-**Find current jobs in Nottinghamshire**
-
-Supporting text:
-
-> Search current paid vacancies from local councils, NHS organisations, universities, schools, academy trusts, charities and voluntary/community organisations.
+Supporting text should explain that the list contains current paid vacancies from the in-scope Nottinghamshire employers.
 
 Show:
 
-- **Last checked:** derived from the newest `date_checked` value in the dataset.
-- **Current vacancies:** calculated number of jobs currently visible after expiry filtering.
+- **Last checked:** newest `date_checked` in the dataset;
+- **Current vacancies:** number of jobs currently visible after expiry filtering.
 
-## Search and filters
+Provide a short guidance panel with this meaning:
+
+> Short role summaries, where shown, are prepared from current vacancy information to help you understand the job. Always check the employer's official advert for full and current details.
+
+Do not expose internal research methods, Playbook mechanics, AI processes, recruitment APIs or audit fields.
+
+---
+
+# 5. Search and filters
 
 Provide:
 
-1. **Keyword search**
-2. **Job Area**
-3. **Organisation**
-4. **Location**
-5. **Sort**
+1. Keyword search
+2. Job Area
+3. Organisation
+4. Location
+5. Sort
+6. Reset filters when search/filtering is active
 
-Default sort:
+Keyword search is case-insensitive and updates immediately. It must search at least:
 
-**Closing soonest**
+- `job_title`;
+- `organization`;
+- `job_area`;
+- `location` / `location_area`;
+- `job_summary`.
 
-Users should be able to combine filters.
-
-Example:
-
-```text
-[ Search job title or keyword...                  ]
-
-[ Job area: All ▼ ] [ Organisation: All ▼ ] [ Location: All ▼ ]
-
-72 jobs found                             [ Sort: Closing soonest ▼ ]
-```
-
-Include a clear **Reset filters** action whenever any filter/search is active.
+Filter values are derived from the current visible dataset. Default sort is **Closing soonest**. Preserve Organisation A–Z, Job title A–Z and Closing latest where already supported.
 
 ---
 
-# 7. Search Behaviour
+# 6. Vacancy information hierarchy
 
-The keyword search should be case-insensitive.
-
-Search at least:
-
-- `job_title`
-- `organization`
-- `job_area`
-- `location`
-
-Search should update results immediately as the user types.
-
-No submit button is required.
-
----
-
-# 8. Filters
-
-## Job Area
-
-Populate dynamically from the actual dataset.
-
-Default:
-
-**All job areas**
-
-## Organisation
-
-Populate dynamically from the actual dataset.
-
-Default:
-
-**All organisations**
-
-Sort organisations alphabetically.
-
-## Location
-
-Use `location_area`.
-
-Default:
-
-**All locations**
-
-Do not expose raw internal source fields as filters.
-
----
-
-# 9. Sorting
-
-Provide:
-
-- Closing soonest
-- Organisation A–Z
-- Job title A–Z
-
-Optional if straightforward:
-
-- Closing latest
-
-Do not include "Newest added" in V1 because the current dataset does not include a verified first-added date.
-
----
-
-# 10. Vacancy Presentation
+Do not present the result list as a dense spreadsheet. The role summary is important enough to sit in the main information hierarchy rather than being squeezed into a narrow metadata column.
 
 ## Desktop
 
-Use a clean list/table hybrid.
-
-Do not display all 15 CSV fields.
-
-Primary visible information:
-
-- Job title
-- Organisation
-- Job area
-- Location
-- Closing date
-- Salary
-- Contract/work pattern
-- View & Apply button
-
-Suggested row structure:
+Target hierarchy:
 
 ```text
 JOB TITLE
 Organisation
-Job Area
+Job area
 
-Location                    Contract / Work pattern
-Salary                      Closing date
+What you'd do
+[2–3 sentence job_summary]
 
-                                         [ View & Apply ]
+Location / work pattern / contract     Salary     Closing date     [ View & Apply ]
 ```
 
-Avoid a dense spreadsheet appearance.
+The summary should have enough horizontal width for comfortable reading and may span the main content width beneath role identity. Factual metadata remains compact and scan-friendly.
+
+When `job_summary` is blank, omit the summary block completely and do not leave an empty heading or artificial gap.
 
 ## Mobile
 
-Switch naturally to stacked vacancy cards/list items.
-
-Do not require horizontal scrolling.
-
-Each result should remain easy to scan.
-
-Suggested order:
+Use stacked cards with this order:
 
 1. Job title
 2. Organisation
 3. Job area
-4. Location
-5. Salary
-6. Contract/work pattern
-7. Closing date
-8. View & Apply
+4. What you'd do / job summary, when present
+5. Location
+6. Salary
+7. Contract / work pattern
+8. Closing date
+9. View & Apply
+
+The bounded summary is shown in full for V1. Do not add a Read more/accordion interaction unless real evidence later shows it is necessary.
+
+No normal mobile width may require horizontal scrolling.
 
 ---
 
-# 11. Apply Action
+# 7. Apply action and shared routes
 
-Every vacancy must have a clear:
+Use `apply_url` for the public action.
 
-**View & Apply**
+For a stable individual vacancy route, label the action **View & Apply**.
 
-button/link.
+If several distinct current vacancies legitimately share the same recruitment page, preserve the existing shared-route behaviour: label the action **Open vacancies page** and show `job_reference` as an additional lookup cue when available. A shared URL alone must never collapse distinct jobs.
 
-It must use `apply_url`.
-
-Open the official vacancy/advert page.
-
-Use a normal hyperlink that remains usable with keyboard navigation.
-
-If `apply_url` is missing, the vacancy should not normally be present because the Job Update workflow requires an official current advert/application URL.
+External links must remain keyboard accessible and use safe link attributes.
 
 ---
 
-# 12. Closing Date Presentation
+# 8. Closing dates and automatic expiry
 
-Display dates in UK-readable format:
+Preserve the existing Europe/London logic:
 
-```text
-3 Sep 2026
-```
-
-If an explicit closing time exists:
-
-```text
-3 Sep 2026, 12:00
-```
-
-Add a simple derived urgency label where useful:
-
-- **Closes today**
-- **Closes tomorrow**
-- **Closes in 2 days**
-
-Do not overuse colours or warning styling.
-
-The actual closing date must always remain visible.
+1. Hide jobs whose `closing_date` is before today's UK date.
+2. For a job closing today with an explicit `closing_time`, hide it after that time.
+3. For a job closing today without a time, keep it visible for the whole date.
+4. Never infer or modify the stored deadline.
+5. Keep the readable UK date and existing urgency labels.
 
 ---
 
-# 13. Empty and Error States
+# 9. CSV parsing and failure behaviour
 
-## No matching jobs
+CSV parsing must support quoted commas and quotation marks correctly; it must not split rows naively on commas.
 
-Show:
+During Phase 1 the parser must explicitly recognise only:
 
-**No jobs match these filters.**
+- the exact legacy 15-column header; or
+- the exact 16-column header with `job_summary` appended.
 
-Supporting text:
+Reject malformed/unsupported header shapes rather than silently shifting positional data. A legacy row receives `job_summary = ""` internally.
 
-> Try changing or clearing one of your filters.
-
-Provide:
-
-**Reset filters**
-
-## CSV cannot be loaded
-
-Show a clear service-user-safe message:
-
-**The job list is temporarily unavailable. Please try again later.**
-
-Do not expose JavaScript errors, file paths or technical details.
-
-## No current vacancies
-
-If the CSV loads but all vacancies have expired:
-
-**There are currently no vacancies in the list. Please check again after the next update.**
+Keep the existing service-user-safe states for no matches, no current vacancies and CSV-load failure.
 
 ---
 
-# 14. Introductory Guidance
+# 10. Accessibility and visual direction
 
-Include a short information panel beneath or near the heading:
+Target WCAG 2.2 AA good practice. Preserve semantic HTML, one clear H1, labelled controls, visible keyboard focus, logical keyboard order, sufficient contrast, large enough tap targets, responsive text and `prefers-reduced-motion` support.
 
-> This job list is updated regularly by Transform Training. Vacancies can close early or be withdrawn, so always check the employer's official advert before applying.
+The site should remain calm, practical, accessible and community-service oriented. Avoid dashboard/AI aesthetics, decorative gradients, unnecessary animation, dense badges, stock imagery or commercial job-board clutter.
 
-Do not expose:
-
-- Job Search Playbook;
-- APIs;
-- recruitment-system mechanics;
-- completeness audits;
-- internal research methods.
+Vacancy content remains the visual priority.
 
 ---
 
-# 15. Footer
+# 11. Technical architecture and privacy
 
-Keep minimal.
+Keep the existing static architecture:
 
-Suggested:
+- GitHub Pages;
+- `index.html`;
+- `styles.css`;
+- `app.js`;
+- `jobs.csv`;
+- documentation and deterministic tests/validator.
 
-**Transform Training — Nottinghamshire Job Opportunities**
+Do not introduce React/Vue/Angular, a package-manager runtime dependency, backend, database, authentication, serverless function or runtime AI.
 
-Then:
+No participant-private profile, Match, CV, application or suitability data belongs in this repository or feed.
 
-> Job information is provided to help job seekers discover opportunities. Always check the employer's official advert for current details before applying.
-
-No account/login links.
-
----
-
-# 16. Visual Direction
-
-The site should feel:
-
-- trustworthy;
-- calm;
-- practical;
-- welcoming;
-- modern but not "techy";
-- designed for public/community service use rather than a commercial recruitment platform.
-
-Avoid:
-
-- dashboard aesthetics;
-- gradients for decoration;
-- glassmorphism;
-- excessive rounded cards;
-- bright status badges everywhere;
-- animations that distract;
-- AI-style visual motifs;
-- oversized hero sections;
-- stock photographs;
-- illustrations unless later requested.
-
-Use generous whitespace and strong typography.
-
-The vacancy content should be the visual priority.
+The existing lightweight web analytics configuration is independent of vacancy enrichment and should not be changed as part of an ordinary Job Update.
 
 ---
 
-# 17. Design System
+# 12. Deterministic validation
 
-Keep styling centralised in CSS variables so the whole site can later be rebranded easily.
+During Phase 1 the validator must fail closed while accepting the two explicitly supported schemas. Existing eligibility-derived structural rules remain intact.
 
-At minimum define tokens for:
+For a 16-column row:
 
-```css
-:root {
-  --color-background: ...;
-  --color-surface: ...;
-  --color-text: ...;
-  --color-text-muted: ...;
-  --color-border: ...;
-  --color-primary: ...;
-  --color-primary-hover: ...;
-  --color-focus: ...;
+- `job_summary` may be blank;
+- a non-empty summary must be at most 650 characters;
+- it must already be normalised as one plain paragraph;
+- line breaks, tabs and control characters are invalid;
+- valid CSV commas and escaped quotation marks must not corrupt field count.
 
-  --font-family: ...;
+Regression coverage must include legacy parsing, 16-column parsing, blank summary, valid summary, over-length summary, comma/quote-containing summary, malformed rows and existing link-policy behaviour.
 
-  --space-1: ...;
-  --space-2: ...;
-  --space-3: ...;
-  --space-4: ...;
-  --space-5: ...;
-  --space-6: ...;
-
-  --radius-small: ...;
-  --radius-medium: ...;
-
-  --content-width: ...;
-}
-```
-
-Repeated controls and vacancy rows/cards should use shared CSS classes rather than one-off styles.
-
-Do not invent a Transform Training logo. If no official logo asset is supplied, use text branding only.
+At feed cutover, use an explicit validator mode that requires the summary column. After successful migration, make that 16-column requirement the routine publication default.
 
 ---
 
-# 18. Accessibility
+# 13. Browser acceptance criteria
 
-Target WCAG 2.2 AA good practice.
+Before Phase 1 handoff verify at minimum:
 
-Requirements:
-
-- semantic HTML;
-- one clear H1;
-- proper labels for all search/filter controls;
-- visible keyboard focus;
-- sufficient colour contrast;
-- no information conveyed by colour alone;
-- buttons/links with clear accessible names;
-- logical keyboard order;
-- responsive text without clipping;
-- no horizontal scrolling on normal mobile widths;
-- tap targets large enough for mobile use;
-- native select controls are acceptable and preferred for simplicity.
-
-Use an ARIA live region for the changing result count if appropriate.
-
-Respect `prefers-reduced-motion`.
+- [ ] current legacy 15-column `jobs.csv` still loads;
+- [ ] 16-column test data loads;
+- [ ] legacy rows render with no summary block;
+- [ ] a non-empty summary renders under **What you'd do**;
+- [ ] summary text participates in keyword search;
+- [ ] blank summary leaves no empty heading/gap;
+- [ ] expiry behaviour is unchanged;
+- [ ] filters and sorting are unchanged;
+- [ ] individual/shared apply-link behaviour is unchanged;
+- [ ] desktop list remains scan-friendly;
+- [ ] mobile order matches this brief and has no horizontal overflow;
+- [ ] keyboard focus remains visible;
+- [ ] no runtime AI, backend or database has been introduced.
 
 ---
 
-# 19. Responsive Behaviour
+# 14. Weekly research boundary
 
-Test at minimum:
+Summary enrichment belongs to normal vacancy verification, not a separate unbounded crawl.
 
-- 1440px desktop
-- 1024px laptop/tablet landscape
-- 768px tablet
-- 390px mobile
+Use summary detail when the official/full advert is already read, a substantive role-purpose/short-description is already provided, or the normal source-specific verification method already uses one ordinary detail fetch.
 
-On narrower screens:
+Do not escalate to expensive browser/crawler/recovery work solely because a summary is missing. Publish an otherwise valid vacancy with a blank summary when sufficient current detail is not available.
 
-- stack search/filter controls;
-- avoid tiny columns;
-- convert results to vertical list/card presentation;
-- keep View & Apply prominent;
-- maintain readable type sizes;
-- never require sideways scrolling.
+Track summary coverage and missing-summary reasons internally during the first several weekly runs. Do not set a mandatory coverage target until real operating evidence justifies one.
 
 ---
 
-# 20. Performance
+# 15. Non-goals
 
-The dataset is expected to contain tens or low hundreds of vacancies.
+Do not implement in this migration:
 
-Load the entire CSV once and handle it client-side.
+- structured public requirements/person-specification fields;
+- participant-specific AI opportunity discovery;
+- AI recommendations, rankings or suitability scores;
+- participant-private data;
+- saved jobs, accounts, application tracking, alerts, employer submissions, CMS or admin dashboard.
 
-Do not add pagination in V1 unless real testing shows it is needed.
-
-Filtering/searching should feel immediate.
-
-No large JavaScript libraries are needed.
-
----
-
-# 21. CSV Parsing
-
-Implement robust CSV parsing.
-
-The data may contain:
-
-- commas in salary text;
-- commas in job titles;
-- ampersands;
-- apostrophes;
-- quoted values;
-- blank optional fields.
-
-Do not parse CSV by simply splitting each row on commas.
-
-Either:
-
-- implement standards-compliant CSV parsing in the project; or
-- use one very small, well-established browser-safe CSV parser only if genuinely necessary.
-
-Prefer zero dependencies where practical.
+Those require separate future decisions.
 
 ---
 
-# 22. Date and Time Handling
+# 16. Success definition
 
-Expiry behaviour must use the **Europe/London** timezone rather than the visitor's timezone.
-
-This matters when a user accesses the site from outside the UK.
-
-Do not treat a UK closing deadline as midnight in the user's local timezone.
-
-Use explicit logic for:
-
-- closing date only;
-- closing date + closing time;
-- daylight-saving changes.
-
----
-
-# 23. Privacy and Security
-
-The site collects no personal data.
-
-V1 must have:
-
-- no account;
-- no form submission;
-- no CV upload;
-- no cookies required by application functionality;
-- no tracking scripts;
-- no AI;
-- no personalisation.
-
-External application links should use safe link attributes where appropriate.
-
----
-
-# 24. GitHub Pages Deployment
-
-Configure the repository so it can be published directly through GitHub Pages.
-
-Preferred outcome:
-
-```text
-https://<account-or-organisation>.github.io/nottinghamshire-jobs/
-```
-
-The repository should contain a short README explaining:
-
-1. how to replace `jobs.csv`;
-2. how to commit the update;
-3. how to confirm the live site updated;
-4. that the CSV column names/order must not be changed;
-5. how to test the page locally if needed.
-
-Do not require a build/deploy command for normal updates.
-
-A custom Transform Training domain/subdomain can be added later.
-
----
-
-# 25. Weekly Update Experience
-
-The normal administrator task must be:
-
-**Replace one file: `jobs.csv`.**
-
-Nothing else.
-
-The page should automatically derive:
-
-- current vacancy count;
-- filter options;
-- organisation list;
-- job-area list;
-- locations;
-- last checked date;
-- expiry visibility.
-
-Do not hard-code those values into HTML.
-
----
-
-# 26. V1 Non-Goals
-
-Do not build:
-
-- user accounts;
-- saved jobs;
-- favourites;
-- application tracking;
-- email alerts;
-- notifications;
-- AI matching;
-- CV analysis;
-- CV upload;
-- employer accounts;
-- employer submissions;
-- salary sliders;
-- maps;
-- location radius search;
-- complex pagination;
-- admin dashboard;
-- CMS;
-- database;
-- API backend.
-
-These may be considered only after real user feedback.
-
----
-
-# 27. Required Test Data
-
-Before deployment, test using a realistic `jobs.csv` containing enough rows to cover:
-
-- Council, NHS, VCSE and Education employers;
-- several job areas;
-- several Nottinghamshire locations;
-- permanent, fixed-term and sessional/freelance work;
-- full-time and part-time roles;
-- salary ranges containing commas;
-- a vacancy closing today with a time;
-- a vacancy closing today without a time;
-- a vacancy closing tomorrow;
-- an already expired vacancy that must be hidden;
-- blank optional values;
-- long NHS/council job titles;
-- duplicate-looking titles with different references.
-
-Do not publish fake sample vacancies to the final public site.
-
----
-
-# 28. Functional Acceptance Criteria
-
-The MVP is complete only when all of these work:
-
-- [ ] Page loads directly from GitHub Pages.
-- [ ] `jobs.csv` loads successfully.
-- [ ] Expired jobs are automatically hidden.
-- [ ] UK closing times are handled in Europe/London.
-- [ ] Keyword search works immediately.
-- [ ] Job Area filter works.
-- [ ] Organisation filter works.
-- [ ] Location filter works.
-- [ ] Filters can be combined.
-- [ ] Reset filters works.
-- [ ] Result count updates correctly.
-- [ ] Closing-soonest is the default sort.
-- [ ] Organisation A–Z sorting works.
-- [ ] Job title A–Z sorting works.
-- [ ] Apply links use the correct `apply_url`.
-- [ ] Last checked date is derived from CSV data.
-- [ ] Desktop presentation is easy to scan.
-- [ ] Mobile presentation requires no horizontal scrolling.
-- [ ] Empty-search state is clear.
-- [ ] CSV-load failure state is clear.
-- [ ] Keyboard navigation works.
-- [ ] Focus states are visible.
-- [ ] No user data is collected.
-- [ ] No AI or backend service is required.
-- [ ] Replacing only `jobs.csv` updates the next publication.
-
----
-
-# 29. Visual Acceptance Criteria
-
-The design should pass these checks:
-
-- [ ] Vacancy results, not decoration, dominate the page.
-- [ ] Search and filters are immediately discoverable.
-- [ ] Closing dates are easy to notice.
-- [ ] Job title has the strongest hierarchy within a result.
-- [ ] Organisation and location are easy to scan.
-- [ ] Apply action is visually clear but not oversized.
-- [ ] Mobile cards remain compact enough to browse many jobs.
-- [ ] Typography remains readable at 200% zoom.
-- [ ] No generic commercial job-board clutter.
-- [ ] No AI-style decorative UI.
-- [ ] Design tokens are centralised and easy to rebrand later.
-
----
-
-# 30. Browser QA
-
-Before handoff:
-
-1. Test the site with a local server.
-2. Test filtering, search, sorting and reset behaviour.
-3. Test all empty/error states.
-4. Test desktop and mobile layouts.
-5. Verify keyboard-only navigation.
-6. Verify a sample of official application links.
-7. Verify expired vacancies are removed from view.
-8. Verify same-day closing-time behaviour.
-9. Verify the page works after replacing `jobs.csv` with a second test dataset.
-10. Verify GitHub Pages production deployment.
-
----
-
-# 31. Deliverables
-
-The implementation should deliver:
-
-```text
-index.html
-styles.css
-app.js
-jobs.csv
-README.md
-```
-
-Also provide:
-
-- deployed GitHub Pages URL;
-- repository URL;
-- one desktop screenshot;
-- one mobile screenshot;
-- confirmation that the weekly update requires replacing only `jobs.csv`;
-- any material limitations discovered during implementation.
-
----
-
-# 32. MVP Success Definition
-
-The MVP succeeds when a service user can open one permanent link, find a suitable Nottinghamshire vacancy within seconds using search/filters, see the key information, and go directly to the employer's official advert.
-
-It also succeeds when Transform Training can publish the next weekly update by replacing one CSV file without editing website code.
+The change succeeds when a service user can scan a vacancy, understand in a short factual paragraph what the work mainly involves when reliable detail is available, and then continue to the employer's official advert; while Transform Training retains the same simple static publication model and safe weekly replacement workflow.
