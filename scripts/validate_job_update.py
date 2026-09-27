@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Validate a complete Nottinghamshire jobs CSV candidate.
 
-Standard-library only. The validator reads the exact candidate `jobs.csv` bytes,
-checks the public data contract, and reports the update date, row count and
-SHA-256. It does not publish, reconstruct, or transform the candidate file.
+Standard-library only. During the job_summary migration the validator accepts
+either the legacy 15-column public feed or the new 16-column feed with
+job_summary appended. Use --require-summary-column when validating a 16-column
+cutover candidate. The validator never publishes, reconstructs or transforms
+the candidate file.
 """
 
 from __future__ import annotations
@@ -20,7 +22,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
-EXPECTED_COLUMNS = [
+LEGACY_COLUMNS = [
     "organization",
     "employer_type",
     "job_title",
@@ -37,6 +39,12 @@ EXPECTED_COLUMNS = [
     "date_checked",
     "source_url",
 ]
+SUMMARY_COLUMNS = [*LEGACY_COLUMNS, "job_summary"]
+# Transitional alias retained for existing helper/test imports. The eventual
+# canonical schema is SUMMARY_COLUMNS; routine publication remains 15-column
+# until the coordinated feed cutover is approved.
+EXPECTED_COLUMNS = LEGACY_COLUMNS
+JOB_SUMMARY_MAX_CHARS = 650
 
 EMPLOYER_TYPES = {"Council", "NHS", "VCSE", "Education"}
 JOB_AREAS = {
@@ -89,6 +97,7 @@ WORK_PATTERNS = {
 }
 
 _TIME_RE = re.compile(r"^(\d{2}):(\d{2})$")
+_CONTROL_RE = re.compile(r"[\x00-\x1f\x7f]")
 
 
 class ValidationError(Exception):
@@ -118,7 +127,11 @@ def normalise(value: str) -> str:
     return " ".join(value.casefold().split())
 
 
-def parse_csv_bytes(csv_bytes: bytes) -> list[dict[str, str]]:
+def parse_csv_bytes(
+    csv_bytes: bytes,
+    *,
+    require_summary_column: bool = False,
+) -> tuple[list[dict[str, str]], list[str]]:
     try:
         text = csv_bytes.decode("utf-8-sig")
     except UnicodeDecodeError as exc:
@@ -129,15 +142,25 @@ def parse_csv_bytes(csv_bytes: bytes) -> list[dict[str, str]]:
     if not rows:
         fail("CSV is empty")
 
-    if rows[0] != EXPECTED_COLUMNS:
-        fail("CSV header does not match the exact 15-column contract")
+    header = rows[0]
+    if header == SUMMARY_COLUMNS:
+        columns = SUMMARY_COLUMNS
+    elif header == LEGACY_COLUMNS and not require_summary_column:
+        columns = LEGACY_COLUMNS
+    elif header == LEGACY_COLUMNS and require_summary_column:
+        fail("CSV uses the legacy 15-column contract; job_summary is required for this validation")
+    else:
+        fail("CSV header does not match a supported 15- or 16-column contract")
 
     records: list[dict[str, str]] = []
     for line_number, row in enumerate(rows[1:], start=2):
-        if len(row) != len(EXPECTED_COLUMNS):
-            fail(f"CSV row {line_number} has {len(row)} fields; expected {len(EXPECTED_COLUMNS)}")
-        records.append(dict(zip(EXPECTED_COLUMNS, row)))
-    return records
+        if len(row) != len(columns):
+            fail(f"CSV row {line_number} has {len(row)} fields; expected {len(columns)}")
+        record = dict(zip(columns, row))
+        if columns == LEGACY_COLUMNS:
+            record["job_summary"] = ""
+        records.append(record)
+    return records, columns
 
 
 def resolve_update_date(records: list[dict[str, str]], declared_date: str | None, require_today: bool) -> date:
@@ -166,6 +189,19 @@ def resolve_update_date(records: list[dict[str, str]], declared_date: str | None
             f"date_checked {update_date.isoformat()} is not today's Europe/London date {today.isoformat()}"
         )
     return update_date
+
+
+def validate_job_summary(value: str, line: int) -> None:
+    if value == "":
+        return
+    if len(value) > JOB_SUMMARY_MAX_CHARS:
+        fail(
+            f"row {line}: job_summary is {len(value)} characters; maximum is {JOB_SUMMARY_MAX_CHARS}"
+        )
+    if _CONTROL_RE.search(value):
+        fail(f"row {line}: job_summary must not contain control characters, tabs or line breaks")
+    if value != " ".join(value.split()):
+        fail(f"row {line}: job_summary whitespace must be normalised to one plain-text paragraph")
 
 
 def validate_record(record: dict[str, str], index: int, update_date: date, require_today: bool) -> None:
@@ -207,6 +243,8 @@ def validate_record(record: dict[str, str], index: int, update_date: date, requi
     for field in ("apply_url", "source_url"):
         if not valid_http_url(record[field].strip()):
             fail(f"row {line}: {field} must be an HTTP(S) URL")
+
+    validate_job_summary(record.get("job_summary", ""), line)
 
 
 def validate_duplicates(records: list[dict[str, str]]) -> None:
@@ -258,8 +296,12 @@ def validate_csv_bytes(
     *,
     declared_date: str | None = None,
     require_today: bool = False,
+    require_summary_column: bool = False,
 ) -> dict[str, object]:
-    records = parse_csv_bytes(csv_bytes)
+    records, columns = parse_csv_bytes(
+        csv_bytes,
+        require_summary_column=require_summary_column,
+    )
     update_date = resolve_update_date(records, declared_date, require_today)
 
     for index, record in enumerate(records):
@@ -271,6 +313,8 @@ def validate_csv_bytes(
         "ok": True,
         "date_checked": update_date.isoformat(),
         "row_count": len(records),
+        "column_count": len(columns),
+        "schema": "summary-16" if columns == SUMMARY_COLUMNS else "legacy-15",
         "sha256": hashlib.sha256(csv_bytes).hexdigest(),
     }
 
@@ -284,6 +328,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Require the update date to equal today's Europe/London date and reject passed same-day stated deadlines",
     )
+    parser.add_argument(
+        "--require-summary-column",
+        action="store_true",
+        help="Require the new 16-column contract with job_summary appended; intended for coordinated feed cutover validation",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -292,6 +341,7 @@ def main(argv: list[str] | None = None) -> int:
             csv_bytes,
             declared_date=args.date_checked,
             require_today=args.require_today,
+            require_summary_column=args.require_summary_column,
         )
         print(json.dumps(result, sort_keys=True))
         return 0

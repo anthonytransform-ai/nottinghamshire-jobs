@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const EXPECTED_COLUMNS = [
+  const LEGACY_COLUMNS = [
     'organization',
     'employer_type',
     'job_title',
@@ -18,6 +18,7 @@
     'date_checked',
     'source_url'
   ];
+  const SUMMARY_COLUMNS = [...LEGACY_COLUMNS, 'job_summary'];
 
   function buildApplyUrlCounts(jobs) {
     const counts = new Map();
@@ -48,40 +49,6 @@
       reference: isShared ? reference : ''
     };
   }
-
-  if (typeof module !== 'undefined' && module.exports) {
-    module.exports = {
-      buildApplyUrlCounts,
-      getApplyLinkPresentation
-    };
-    return;
-  }
-
-  const state = {
-    allJobs: [],
-    currentJobs: [],
-    applyUrlCounts: new Map(),
-    londonNow: null,
-    loaded: false
-  };
-
-  const elements = {
-    main: document.querySelector('main'),
-    controls: document.querySelector('#job-controls'),
-    keyword: document.querySelector('#keyword-search'),
-    jobArea: document.querySelector('#job-area-filter'),
-    organisation: document.querySelector('#organisation-filter'),
-    location: document.querySelector('#location-filter'),
-    sort: document.querySelector('#sort-filter'),
-    reset: document.querySelector('#reset-filters'),
-    lastChecked: document.querySelector('#last-checked'),
-    currentVacancies: document.querySelector('#current-vacancies'),
-    resultsHeading: document.querySelector('#results-heading'),
-    stateMessage: document.querySelector('#state-message'),
-    jobList: document.querySelector('#job-list')
-  };
-
-  const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   function escapeHtml(value) {
     return String(value ?? '')
@@ -125,12 +92,21 @@
       }
     }
 
+    if (insideQuotes) {
+      throw new Error('The vacancy file contains an unterminated quoted field.');
+    }
+
     if (field.length > 0 || row.length > 0) {
       row.push(field);
       rows.push(row);
     }
 
     return rows.filter((candidate) => candidate.some((value) => value.trim() !== ''));
+  }
+
+  function sameColumns(actual, expected) {
+    return actual.length === expected.length
+      && actual.every((column, index) => column === expected[index]);
   }
 
   function recordsFromCsv(csvText) {
@@ -140,21 +116,85 @@
     }
 
     const headers = rows[0].map((header, index) => index === 0 ? header.replace(/^\uFEFF/, '') : header);
-    const matchesContract = headers.length === EXPECTED_COLUMNS.length
-      && headers.every((header, index) => header === EXPECTED_COLUMNS[index]);
+    const isLegacy = sameColumns(headers, LEGACY_COLUMNS);
+    const isSummary = sameColumns(headers, SUMMARY_COLUMNS);
 
-    if (!matchesContract) {
-      throw new Error('The vacancy file does not match the expected column contract.');
+    if (!isLegacy && !isSummary) {
+      throw new Error('The vacancy file does not match a supported 15- or 16-column contract.');
     }
 
-    return rows.slice(1).map((values) => {
+    return rows.slice(1).map((values, rowIndex) => {
+      if (values.length !== headers.length) {
+        throw new Error(`Vacancy row ${rowIndex + 2} has ${values.length} fields; expected ${headers.length}.`);
+      }
+
       const record = {};
-      EXPECTED_COLUMNS.forEach((column, index) => {
+      headers.forEach((column, index) => {
         record[column] = (values[index] ?? '').trim();
       });
+      if (isLegacy) {
+        record.job_summary = '';
+      }
       return record;
     });
   }
+
+  function jobMatchesKeyword(job, keyword) {
+    const search = String(keyword ?? '').trim().toLocaleLowerCase('en-GB');
+    if (!search) {
+      return true;
+    }
+    const keywordFields = ['job_title', 'organization', 'job_area', 'location', 'location_area', 'job_summary'];
+    return keywordFields.some((field) => String(job[field] ?? '').toLocaleLowerCase('en-GB').includes(search));
+  }
+
+  function renderSummaryMarkup(job) {
+    const summary = String(job.job_summary ?? '').trim();
+    if (!summary) {
+      return '';
+    }
+    return `<div class="job-row__summary"><p class="job-row__summary-label">What you'd do</p><p class="job-row__summary-text">${escapeHtml(summary)}</p></div>`;
+  }
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+      LEGACY_COLUMNS,
+      SUMMARY_COLUMNS,
+      buildApplyUrlCounts,
+      getApplyLinkPresentation,
+      parseCsv,
+      recordsFromCsv,
+      jobMatchesKeyword,
+      renderSummaryMarkup
+    };
+    return;
+  }
+
+  const state = {
+    allJobs: [],
+    currentJobs: [],
+    applyUrlCounts: new Map(),
+    londonNow: null,
+    loaded: false
+  };
+
+  const elements = {
+    main: document.querySelector('main'),
+    controls: document.querySelector('#job-controls'),
+    keyword: document.querySelector('#keyword-search'),
+    jobArea: document.querySelector('#job-area-filter'),
+    organisation: document.querySelector('#organisation-filter'),
+    location: document.querySelector('#location-filter'),
+    sort: document.querySelector('#sort-filter'),
+    reset: document.querySelector('#reset-filters'),
+    lastChecked: document.querySelector('#last-checked'),
+    currentVacancies: document.querySelector('#current-vacancies'),
+    resultsHeading: document.querySelector('#results-heading'),
+    stateMessage: document.querySelector('#state-message'),
+    jobList: document.querySelector('#job-list')
+  };
+
+  const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   function getLondonNow() {
     const parts = new Intl.DateTimeFormat('en-GB', {
@@ -270,7 +310,7 @@
   }
 
   function safeApplyUrl(value) {
-    if (!value.trim()) {
+    if (!String(value ?? '').trim()) {
       return '';
     }
     try {
@@ -319,17 +359,20 @@
     const salary = displayValue(job.salary, 'Salary not stated');
     const urgency = urgencyLabel(job, state.londonNow);
     const linkPresentation = getApplyLinkPresentation(job, state.applyUrlCounts);
+    const summaryMarkup = renderSummaryMarkup(job);
+    const rowClass = summaryMarkup ? 'job-row job-row--has-summary' : 'job-row';
     const referenceHint = linkPresentation.reference
       ? `<p class="job-row__reference">Reference: <span>${escapeHtml(linkPresentation.reference)}</span></p>`
       : '';
 
-    return `<article class="job-row">
+    return `<article class="${rowClass}">
       <div class="job-row__primary">
         <h3 class="job-title">${escapeHtml(displayValue(job.job_title, 'Untitled vacancy'))}</h3>
         <p class="job-organization">${escapeHtml(displayValue(job.organization, 'Organisation not stated'))}</p>
         ${referenceHint}
         <p class="job-area">${icon('briefcase')}<span>${escapeHtml(displayValue(job.job_area, 'Job area not stated'))}</span></p>
       </div>
+      ${summaryMarkup}
       <div class="job-row__location-group">
         <div class="job-row__location">${icon('location')}<span>${escapeHtml(location)}</span></div>
         <div class="job-row__contract"><span>${escapeHtml(contract)}</span></div>
@@ -373,9 +416,8 @@
 
   function filteredJobs() {
     const filters = selectedFilters();
-    const keywordFields = ['job_title', 'organization', 'job_area', 'location', 'location_area'];
     const jobs = state.currentJobs.filter((job) => {
-      const keywordMatches = !filters.keyword || keywordFields.some((field) => job[field].toLocaleLowerCase('en-GB').includes(filters.keyword));
+      const keywordMatches = jobMatchesKeyword(job, filters.keyword);
       const areaMatches = !filters.jobArea || job.job_area === filters.jobArea;
       const organisationMatches = !filters.organisation || job.organization === filters.organisation;
       const locationMatches = !filters.location || job.location_area === filters.location;
