@@ -90,7 +90,6 @@ The `employer_type` field accepts: `Council`, `NHS`, `VCSE`, or `Education`. The
 `job_summary` is a discovery/orientation field: a concise factual explanation of what the person would mainly be doing in the role. The employer's official advert remains the authority for full and current vacancy detail.
 
 - Target length: about 2–3 sentences / roughly 40–80 words when the source supports that amount of useful detail.
-- Hard maximum: **650 characters**, counted as stored Unicode characters.
 - Format: plain text, one paragraph, with whitespace normalised to single spaces.
 - Grounding: current official employer/recruitment content used during normal vacancy verification only; never infer duties from the job title alone.
 - Exclude suitability/eligibility language, recommendations, participant-specific language, unsupported claims and long person-specification lists.
@@ -98,7 +97,7 @@ The `employer_type` field accepts: `Council`, `NHS`, `VCSE`, or `Education`. The
 - A blank summary must not remove an otherwise valid vacancy from publication.
 - Do not start a second unbounded crawl, browser run or Firecrawl pass solely to fill missing summaries.
 
-The validator rejects non-empty summaries over 650 characters, C0/DEL control characters including tabs or line breaks, and non-normalised whitespace. Standard CSV quoting remains valid for commas and quotation marks.
+The validator does not enforce a character maximum for `job_summary`. It rejects C0/DEL control characters including tabs or line breaks, and non-normalised whitespace. Standard CSV quoting remains valid for commas and quotation marks.
 
 ## Public feed contract
 
