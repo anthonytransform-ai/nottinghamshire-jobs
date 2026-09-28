@@ -48,20 +48,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python scripts/validate_job_update.py jobs.csv --require-today > "$RUNNER_TEMP/job-validation.json"
+          python scripts/validate_job_update.py jobs.csv > "$RUNNER_TEMP/job-validation.json"
           cat "$RUNNER_TEMP/job-validation.json"
 
           python - "$RUNNER_TEMP/job-validation.json" "$GITHUB_OUTPUT" <<'PY'
           import json, pathlib, sys
           result = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
           with open(sys.argv[2], "a", encoding="utf-8") as out:
-              for key in ("date_checked", "row_count", "sha256"):
+              for key in ("row_count", "sha256"):
                   out.write(f"{key}={result[key]}\n")
           PY
 
       - name: Record PR validation summary
         env:
-          DATE_CHECKED: ${{ steps.validate.outputs.date_checked }}
           ROW_COUNT: ${{ steps.validate.outputs.row_count }}
           SHA256: ${{ steps.validate.outputs.sha256 }}
         shell: bash
@@ -70,9 +69,9 @@ jobs:
             echo '## Nottinghamshire Job Update validation'
             echo
             echo '- Result: **PASS**'
-            echo "- Date checked: \`$DATE_CHECKED\`"
             echo "- Rows: \`$ROW_COUNT\`"
             echo "- SHA-256: \`$SHA256\`"
+            echo '- Structural/security validation only; vacancy eligibility and editorial quality are governed by the current Job Search Playbook.'
             echo '- Changed file: `jobs.csv` only'
             echo '- Publication: manual merge required; this workflow does not write to `main`.'
           } >> "$GITHUB_STEP_SUMMARY"

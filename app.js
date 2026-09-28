@@ -282,11 +282,17 @@
   }
 
   function formatClosingDate(job) {
+    if (!isDateOnly(job.closing_date)) {
+      return 'Closing date not stated';
+    }
     const date = formatDate(job.closing_date);
-    return job.closing_time ? `${date}, ${job.closing_time}` : date;
+    return job.closing_time && isTimeOnly(job.closing_time) ? `${date}, ${job.closing_time}` : date;
   }
 
   function urgencyLabel(job, londonNow) {
+    if (!isDateOnly(job.closing_date)) {
+      return '';
+    }
     const distance = dateDistanceInDays(londonNow.dateKey, job.closing_date);
     if (distance === 0) {
       return 'Closes today';
@@ -364,6 +370,9 @@
     const referenceHint = linkPresentation.reference
       ? `<p class="job-row__reference">Reference: <span>${escapeHtml(linkPresentation.reference)}</span></p>`
       : '';
+    const closingDateMarkup = isDateOnly(job.closing_date)
+      ? `<time class="job-row__date" datetime="${escapeHtml(job.closing_date)}">${escapeHtml(formatClosingDate(job))}</time>`
+      : `<span class="job-row__date">${escapeHtml(formatClosingDate(job))}</span>`;
 
     return `<article class="${rowClass}">
       <div class="job-row__primary">
@@ -378,7 +387,7 @@
         <div class="job-row__contract"><span>${escapeHtml(contract)}</span></div>
       </div>
       <div class="job-row__salary">${escapeHtml(salary)}</div>
-      <div class="job-row__deadline">${urgency ? `<span class="job-row__urgency">${escapeHtml(urgency)}</span>` : ''}<time class="job-row__date" datetime="${escapeHtml(job.closing_date)}">${escapeHtml(formatClosingDate(job))}</time></div>
+      <div class="job-row__deadline">${urgency ? `<span class="job-row__urgency">${escapeHtml(urgency)}</span>` : ''}${closingDateMarkup}</div>
       <a class="job-apply" href="${escapeHtml(applyUrl)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(linkPresentation.ariaLabel)}">${escapeHtml(linkPresentation.label)}</a>
     </article>`;
   }
@@ -404,8 +413,22 @@
           || left.organization.localeCompare(right.organization, 'en-GB', { sensitivity: 'base' });
       }
 
-      const leftDate = `${left.closing_date}T${left.closing_time || '23:59'}`;
-      const rightDate = `${right.closing_date}T${right.closing_time || '23:59'}`;
+      const leftHasDate = isDateOnly(left.closing_date);
+      const rightHasDate = isDateOnly(right.closing_date);
+      if (!leftHasDate && rightHasDate) {
+        return 1;
+      }
+      if (leftHasDate && !rightHasDate) {
+        return -1;
+      }
+      if (!leftHasDate && !rightHasDate) {
+        return left.job_title.localeCompare(right.job_title, 'en-GB', { sensitivity: 'base' });
+      }
+
+      const leftTime = left.closing_time && isTimeOnly(left.closing_time) ? left.closing_time : '23:59';
+      const rightTime = right.closing_time && isTimeOnly(right.closing_time) ? right.closing_time : '23:59';
+      const leftDate = `${left.closing_date}T${leftTime}`;
+      const rightDate = `${right.closing_date}T${rightTime}`;
       const closingOrder = leftDate.localeCompare(rightDate);
       if (sort === 'closing-latest') {
         return -closingOrder || left.job_title.localeCompare(right.job_title, 'en-GB', { sensitivity: 'base' });
@@ -489,8 +512,7 @@
   }
 
   function visibleJobs(records, londonNow) {
-    return records.filter((job) => isDateOnly(job.closing_date)
-      && !isExpired(job, londonNow)
+    return records.filter((job) => !isExpired(job, londonNow)
       && safeApplyUrl(job.apply_url));
   }
 
