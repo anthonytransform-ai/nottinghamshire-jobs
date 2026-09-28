@@ -44,7 +44,6 @@ SUMMARY_COLUMNS = [*LEGACY_COLUMNS, "job_summary"]
 # canonical schema is SUMMARY_COLUMNS; routine publication remains 15-column
 # until the coordinated feed cutover is approved.
 EXPECTED_COLUMNS = LEGACY_COLUMNS
-JOB_SUMMARY_MAX_CHARS = 650
 
 EMPLOYER_TYPES = {"Council", "NHS", "VCSE", "Education"}
 JOB_AREAS = {
@@ -194,10 +193,6 @@ def resolve_update_date(records: list[dict[str, str]], declared_date: str | None
 def validate_job_summary(value: str, line: int) -> None:
     if value == "":
         return
-    if len(value) > JOB_SUMMARY_MAX_CHARS:
-        fail(
-            f"row {line}: job_summary is {len(value)} characters; maximum is {JOB_SUMMARY_MAX_CHARS}"
-        )
     if _CONTROL_RE.search(value):
         fail(f"row {line}: job_summary must not contain control characters, tabs or line breaks")
     if value != " ".join(value.split()):

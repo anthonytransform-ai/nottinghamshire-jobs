@@ -90,7 +90,6 @@ Purpose: a concise, plain-language factual explanation of what the person would 
 Rules:
 
 - normally around 2–3 sentences / roughly 40–80 words;
-- maximum **650 characters**;
 - plain text, one paragraph;
 - whitespace normalised to single spaces with no line breaks, tabs or control characters;
 - commas and quotation marks are allowed when correctly CSV-quoted;
@@ -184,7 +183,7 @@ Use stacked cards with this order:
 8. Closing date
 9. View & Apply
 
-The bounded summary is shown in full for V1. Do not add a Read more/accordion interaction unless real evidence later shows it is necessary.
+The summary is shown in full for V1. Do not add a Read more/accordion interaction unless real evidence later shows it is necessary.
 
 No normal mobile width may require horizontal scrolling.
 
@@ -265,12 +264,11 @@ During Phase 1 the validator must fail closed while accepting the two explicitly
 For a 16-column row:
 
 - `job_summary` may be blank;
-- a non-empty summary must be at most 650 characters;
 - it must already be normalised as one plain paragraph;
 - line breaks, tabs and control characters are invalid;
 - valid CSV commas and escaped quotation marks must not corrupt field count.
 
-Regression coverage must include legacy parsing, 16-column parsing, blank summary, valid summary, over-length summary, comma/quote-containing summary, malformed rows and existing link-policy behaviour.
+Regression coverage must include legacy parsing, 16-column parsing, blank summary, valid summary, comma/quote-containing summary, malformed rows and existing link-policy behaviour.
 
 At feed cutover, use an explicit validator mode that requires the summary column. After successful migration, make that 16-column requirement the routine publication default.
 
