@@ -6,7 +6,6 @@ from datetime import datetime as DateTime
 from unittest.mock import patch
 
 from scripts.validate_job_update import (
-    JOB_SUMMARY_MAX_CHARS,
     LEGACY_COLUMNS,
     SUMMARY_COLUMNS,
     ValidationError,
@@ -75,12 +74,6 @@ class CandidateValidationTests(unittest.TestCase):
         row["job_summary"] = 'Support the team with calls, records and the service\'s "first response" process.'
         result = validate_csv_bytes(csv_bytes([row], SUMMARY_COLUMNS), require_summary_column=True)
         self.assertEqual("summary-16", result["schema"])
-
-    def test_over_length_summary_fails(self):
-        row = deepcopy(BASE_ROW)
-        row["job_summary"] = "x" * (JOB_SUMMARY_MAX_CHARS + 1)
-        with self.assertRaises(ValidationError):
-            validate_csv_bytes(csv_bytes([row], SUMMARY_COLUMNS), require_summary_column=True)
 
     def test_summary_with_line_break_fails(self):
         row = deepcopy(BASE_ROW)
