@@ -58,11 +58,13 @@ the shared local state helper; no database or service is required.
 
 ## Executable collection and representative weekly path
 
-Before using a deterministic adapter, read the bounded mechanical access recipe
-for its registry source or family in `scripts/collector-access-recipes.md`. The
-recipes reference registry IDs; `references/source-registry.json` remains the
-sole route/fallback owner. Changed markup or access needs targeted diagnosis,
-not repeated portal rediscovery.
+Before opening any source work unit, read the bounded mechanical access recipe
+or assessment for its registry source or family in
+`scripts/collector-access-recipes.md` when one exists. This applies to both
+deterministic adapters and intentionally agent-assisted sources. The recipes
+reference registry IDs; `references/source-registry.json` remains the sole
+route/fallback owner. Changed markup or access needs targeted diagnosis, not
+repeated portal rediscovery.
 
 Collection tooling is separate from the public static site. Install the pinned
 Python development dependency from `scripts/requirements-collection.txt` only
@@ -96,14 +98,16 @@ from the current record for each invocation. The normal weekly boundary still
 requires finishing one source before the next.
 
 Any registry method not covered by those deterministic adapters remains
-agent-assisted. Use the current Playbook and that record's registered route and
-simple fallback for those sources, including `tal`, `council-direct`,
-`healthjobsuk-trac` records without a deterministic completion proof,
-`college-direct` and `vcse-direct` records. A human-verification response is a
-source limitation, never an EMPTY result; record PARTIAL/ERROR and continue
-under Playbook rules. In particular, the current Nottinghamshire TAL Altcha
-behaviour remains agent-assisted and must not trigger a CAPTCHA, proxy or
-stealth workaround.
+agent-assisted. First apply any settled source-access recipe or assessment;
+then use the current Playbook and that record's registered route and simple
+fallback. This includes `tal`, `council-direct`, `healthjobsuk-trac` records
+without a deterministic completion proof, `college-direct` and `vcse-direct`
+records. A human-verification response is a source limitation, never an EMPTY
+result; record PARTIAL/ERROR and continue under Playbook rules. If behaviour
+has changed, perform only bounded diagnosis. If the known boundary is still
+present, retain the limitation and do not rediscover or bypass it. In
+particular, the current Nottinghamshire TAL Altcha behaviour remains
+agent-assisted and must not trigger a CAPTCHA, proxy or stealth workaround.
 
 The collector emits the shared source-run record and raw candidates. Consume
 `source-runs.json`, `raw-candidates.jsonl`, per-source checkpoints and captured

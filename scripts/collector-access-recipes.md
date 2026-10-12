@@ -187,11 +187,28 @@ the current live source and apply the completion/failure contracts below.
 - **Fallback:** use only each source's registered rendered/current board or
   exact-domain fallback. Do not guess vacancy IDs, inspect undocumented
   population endpoints or merge employers sharing the host.
-- **Completed proof — 2026-10-12:** the Ashfield WVID `6777852QI7` rendered
-  normally, exposed 12 current jobs, loaded 10 cards followed by two more, and
-  exposed a real `VACANCY_ID`/`bu-send` route plus readable detail facts and an
-  Apply-online destination. The other five records remain isolated by their
-  exact registry WVIDs; counts are dynamic.
+- **Completed full-run observation — 2026-10-12:** all six exact registry
+  WVIDs enumerated their current rendered lists independently:
+
+  | Registry source | WVID | Observed list candidates |
+  | --- | --- | ---: |
+  | `ashfield-district-council` | `6777852QI7` | 12 |
+  | `mansfield-district-council` | `4128782IuI` | 7 |
+  | `bassetlaw-district-council` | `8070960wxx` | 5 |
+  | `newark-and-sherwood-district-council` | `3373962BPM` | 7 |
+  | `west-nottinghamshire-college` | `5245470Prv` | 14 |
+  | `north-notts-college-rnn-group` | `8759023jQy` | 18 |
+
+  Each list preserved source-exposed `VACANCY_ID`/`bu-send` destinations, but
+  the first rendered individual-detail attempt for every WVID reached the same
+  `E0227SECURITY` boundary. The six outcomes are therefore truthful `PARTIAL`
+  with useful list identities and job-specific routes, not `OK` or `EMPTY`.
+  This is a dated access condition, not a permanent count or completeness
+  claim: future runs must enumerate fresh counts. Do not repeat broad portal
+  reverse-engineering or search for a detail bypass merely because this known
+  boundary is present; retain the list evidence and close the source as
+  `PARTIAL` under the shared contract. The fast code-level security detection
+  must remain aligned with this boundary.
 
 ## nottingham-city-council
 
@@ -237,6 +254,39 @@ the current live source and apply the completion/failure contracts below.
   provide a trustworthy current list, record PARTIAL/ERROR rather than EMPTY.
 - **Decision:** leave TAL agent-assisted for ANT-260. No deterministic TAL
   adapter is authorised by this evidence.
+
+## Agent-assisted source mechanics
+
+These are bounded access recipes for sources that remain agent-assisted. They
+do not replace the Playbook or add a second source registry. Counts are dated
+observations only; future runs must enumerate the current source.
+
+### nottinghamshire-healthcare
+
+- **Registry ID:** `nottinghamshire-healthcare`.
+- **Normal mechanic — 2026-10-12 observation:** the registered HealthJobsUK
+  employer list rendered 50 current vacancies on page 1. A normal page-2
+  navigation exposed one additional current vacancy, for 51 known listings in
+  the retained run. Treat the list as genuinely paginated when a visible next
+  control or page navigation is present; move to the next page once, wait for
+  the result surface to settle, and stop when the normal control is exhausted.
+- **Failure boundary:** a static shell, inaccessible page or unresolved page
+  transition is a source limitation (`PARTIAL`/`ERROR` as appropriate), never
+  proof of zero vacancies. Do not infer a permanent total from the 50 + 1
+  observation or start platform discovery merely to reconcile a count.
+
+### nottingham-college
+
+- **Registry ID:** `nottingham-college`.
+- **Normal mechanic — 2026-10-12 observation:** the registered college jobs
+  page initially presents an asynchronous/rendered shell. Wait for the normal
+  vacancy list to load, then capture the visible current vacancy cards/links;
+  the retained run settled at 13 known listings. A static shell or an empty
+  pre-render response is not a zero result.
+- **Failure boundary:** if the normal asynchronous list does not settle or
+  exposes no trustworthy vacancy identity, record `PARTIAL`/`ERROR` according
+  to the shared lifecycle and keep the limitation visible. Do not investigate
+  undocumented endpoints or manufacture a count.
 
 ## Working-state and investigation boundary
 
