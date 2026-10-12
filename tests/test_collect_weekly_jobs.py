@@ -7,7 +7,7 @@ from unittest.mock import patch
 from scripts.collect_weekly_jobs import (
     CollectionError, PILOTS, Transport, collect, parse_detail, parse_list, next_page,
 )
-from scripts.weekly_job_update import RawCandidateStatus, SourceRunStatus, WorkingStateStore, load_registry
+from scripts.weekly_job_update import RawCandidateStatus, SourceRun, SourceRunStatus, WorkingStateStore, load_registry
 
 
 UON_LIST = '''<h2>Administrative opportunities</h2><div class="vacancylist">
@@ -129,6 +129,59 @@ class CollectorParserTests(unittest.TestCase):
         with self.assertRaises(CollectionError):
             next_page(source, '<a href="?emp=358&page=2">Next</a><a href="?emp=358&page=3">Next</a>', source.fixed_route)
 
+    def test_govuk_teaching_vacancies_preserves_slug_and_detail_application(self):
+        source = load_registry().get("govuk-teaching-vacancies")
+        listing = '''<ul><li class="search-results__item"><h2><a class="view-vacancy-link" href="/jobs/teacher-tuxford">Teacher</a></h2>
+        <p class="address">Tuxford Primary Academy, Nottinghamshire</p><dl><dt>Closing date</dt><dd>31 October 2026</dd>
+        <dt>Full time equivalent salary</dt><dd>£30,000 to £46,000</dd></dl></li></ul>'''
+        row = parse_list(source, listing, source.fixed_route)[0]
+        self.assertEqual("teacher-tuxford", row["platform_id"])
+        self.assertEqual("https://teaching-vacancies.service.gov.uk/jobs/teacher-tuxford", row["url"])
+        detail = '''<h1>Teacher</h1><span class="govuk-caption-l">Tuxford Primary Academy, Nottinghamshire</span>
+        <div id="job-details"><dl><dt>Contract type</dt><dd>Permanent</dd><dt>Working pattern</dt><dd>Full time</dd></dl></div>
+        <div class="editor-rendered-content"><p>Teach pupils and support the school community.</p></div>
+        <a data-link-type="external_advert_link" href="https://example.org/apply/teacher-tuxford">Apply</a>
+        <script type="application/ld+json">''' + json.dumps({"@type": "JobPosting", "url": row["url"], "validThrough": "2026-10-31", "hiringOrganization": {"name": "Tuxford Primary Academy"}}) + '''</script>'''
+        facts = parse_detail(source, row, detail)
+        self.assertIn("Teach pupils", facts["detail_body"])
+        self.assertEqual("Permanent", facts["raw_contract"])
+        self.assertEqual("https://example.org/apply/teacher-tuxford", facts["raw_apply_url"])
+
+    def test_itrent_preserves_registered_wvid_and_vacancy_id(self):
+        source = load_registry().get("ashfield-district-council")
+        listing = '''<p>12 jobs match your criteria</p><div class="Mhr-card Mhr-jobDetail Mhr-jobDetail--listItem"
+        vac-id="0947126vEt" bu-send="/ce0930li_webrecruitment/wrd/run/ETREC148GF.open?WVID=6777852QI7&amp;VACANCY_ID=0947126vEt">
+        <a class="Mhr-jobDetailTitleLink" href="#">Housing Officer</a><div><span class="Mhr-jobDetailEntry--label">Salary</span><span class="Mhr-jobDetailEntry--text">£35,000</span></div>
+        <div><span class="Mhr-jobDetailEntry--label">Location</span><span class="Mhr-jobDetailEntry--text">Kirkby-in-Ashfield</span></div></div>'''
+        row = parse_list(source, listing, source.fixed_route)[0]
+        self.assertEqual("0947126vEt", row["platform_id"])
+        self.assertIn("WVID=6777852QI7", row["url"])
+        detail = '''<div class="Mhr-jobProfile"><h1 class="Mhr-jobProfile--title">Housing Officer</h1>
+        <div class="Mhr-jobProfile--closingDate">Apply by 31 October 2026</div>
+        <div><span class="Mhr-jobProfile--dataListLabel">Salary</span><span class="Mhr-jobProfile--dataListData">£35,000</span></div>
+        <div><span class="Mhr-jobProfile--dataListLabel">Basis</span><span class="Mhr-jobProfile--dataListData">Full time</span></div>
+        <div class="Mhr-jobProfile--description"><p>Support residents and deliver housing services.</p></div>
+        <a href="/apply/0947126vEt">Apply online</a></div>'''
+        facts = parse_detail(source, row, detail)
+        self.assertEqual("Full time", facts["raw_work_pattern"])
+        self.assertEqual("31 October 2026", facts["raw_deadline"])
+        self.assertTrue(facts["raw_apply_url"].endswith("/apply/0947126vEt"))
+
+    def test_oracle_cloud_preserves_rendered_job_id_and_detail_facts(self):
+        source = load_registry().get("nottingham-city-council")
+        listing = '''<div>Job search results 1</div><div class="job-list-item"><a class="job-list-item__link"
+        href="/hcmUI/CandidateExperience/en/sites/ncc/job/8462"><span class="job-tile__title">Service Manager</span>
+        <span class="job-list-item__job-info-value">Nottingham</span></a></div>'''
+        row = parse_list(source, listing, source.fixed_route)[0]
+        self.assertEqual("8462", row["platform_id"])
+        detail = '''<h1 class="heading job-details__title">Service Manager</h1><div class="job-details__subtitle">Nottingham</div>
+        <div class="job-details__description-content">Salary: £45,000 Location: Nottingham Contract: Permanent Number of posts: 1 Closing Date: 31 October 2026 Job Identification 8462
+        Lead the service and support residents.</div>'''
+        facts = parse_detail(source, row, detail)
+        self.assertEqual("£45,000", facts["raw_salary"])
+        self.assertEqual("Permanent", facts["raw_contract"])
+        self.assertIn("Lead the service", facts["detail_body"])
+
 
 class CollectorLifecycleTests(unittest.TestCase):
     def setUp(self):
@@ -205,6 +258,13 @@ class CollectorLifecycleTests(unittest.TestCase):
     def test_corrupt_success_checkpoint_cannot_skip_collection(self):
         self.collect()
         (self.root / "raw-candidates.jsonl").write_text("")
+        with self.assertRaises(CollectionError):
+            self.collect()
+
+    def test_running_state_without_checkpoint_is_not_reused_as_fresh_evidence(self):
+        run = SourceRun(PILOTS[0])
+        run.begin("2026-10-12T10:00:00+01:00")
+        WorkingStateStore(self.root).save_source_runs([run])
         with self.assertRaises(CollectionError):
             self.collect()
 

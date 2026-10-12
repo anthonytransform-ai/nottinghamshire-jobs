@@ -268,6 +268,31 @@ class WorkingStateTests(unittest.TestCase):
             self.assertEqual("draft", store.load_candidate_state("draft")[0]["status"])
             self.assertEqual("final", store.load_candidate_state("final")[0]["status"])
 
+    def test_duplicate_source_identity_is_rejected_at_checkpoint(self):
+        first = RawCandidate(
+            source_id="example-source",
+            source_family="education",
+            raw_title="Administrator",
+            source_platform_id="ABC-1",
+            list_url="https://example.org/jobs",
+            detail_url="https://example.org/jobs/1",
+            collected_at="2026-10-12T10:00:00+01:00",
+            collection_method="test",
+        )
+        duplicate = RawCandidate(
+            source_id="example-source",
+            source_family="education",
+            raw_title="Administrator copy",
+            source_platform_id="ABC-1",
+            list_url="https://example.org/jobs",
+            detail_url="https://example.org/jobs/2",
+            collected_at="2026-10-12T10:00:00+01:00",
+            collection_method="test",
+        )
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as temporary_directory:
+            with self.assertRaises(ValueError):
+                WorkingStateStore(temporary_directory).replace_source_candidates("example-source", [first, duplicate])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,4 +1,4 @@
-"""Three evidence-only pilot adapters. Run one registered source per invocation.
+"""Evidence-only adapters. Run one registered source per invocation.
 
 HTTP parsing uses the standard library; rendered sources lazily use Playwright.
 No eligibility, classification, summary or public CSV policy lives here.
@@ -24,7 +24,20 @@ from scripts.weekly_job_update import (
     SourceRunStatus, WorkingStateStore, load_registry,
 )
 
+# Keep the original pilot tuple public for the controlled ANT-259 shadow tool.
 PILOTS = ("university-of-nottingham", "nottingham-trent-university", "nottingham-university-hospitals")
+ITRENT_SOURCES = (
+    "ashfield-district-council",
+    "mansfield-district-council",
+    "bassetlaw-district-council",
+    "newark-and-sherwood-district-council",
+    "west-nottinghamshire-college",
+    "north-notts-college-rnn-group",
+)
+EXPANSION_SOURCES = ("govuk-teaching-vacancies", *ITRENT_SOURCES, "nottingham-city-council")
+SUPPORTED_SOURCES = (*PILOTS, *EXPANSION_SOURCES)
+RENDERED_LIST_METHODS = frozenset({"jobtrain", "healthjobsuk-trac", "itrent", "oracle-cloud"})
+RENDERED_DETAIL_METHODS = RENDERED_LIST_METHODS
 
 
 def now():
@@ -100,7 +113,8 @@ class CollectionError(RuntimeError):
 def check_document(html):
     root = Document(html).root
     text = root.text().lower()
-    if any(marker in text for marker in ("complete the security check", "verify you are human", "access denied", "just a moment", "checking your browser")):
+    source = html.lower()
+    if any(marker in text or marker in source for marker in ("complete the security check", "verify you are human", "access denied", "just a moment", "checking your browser", "quick check needed", "confirm you're a real person", "altcha-widget")):
         raise CollectionError("Access/security check returned instead of vacancy evidence")
     return root
 
@@ -130,6 +144,77 @@ def advert_url(href, page_url):
     if urlparse(url).scheme not in {"http", "https"} or urlparse(url).netloc != urlparse(page_url).netloc:
         raise CollectionError(f"Unexpected advert destination: {url}")
     return url
+
+
+def _ancestor(node, *classes):
+    current = node
+    while current is not None:
+        tokens = set(current.attrs.get("class", "").split())
+        if any(value in tokens for value in classes):
+            return current
+        current = current.parent
+    return None
+
+
+def _first_text(node, *, tag=None, cls=None):
+    matches = node.nodes(tag, cls)
+    return matches[0].text() if matches else ""
+
+
+def _json_ld_records(root):
+    records = []
+    for script in root.nodes("script"):
+        if script.attrs.get("type") != "application/ld+json":
+            continue
+        content = "".join(child for child in script.children if isinstance(child, str)).strip()
+        if not content:
+            continue
+        try:
+            value = json.loads(content)
+        except json.JSONDecodeError:
+            continue
+        values = value if isinstance(value, list) else value.get("@graph", [value]) if isinstance(value, dict) else []
+        records.extend(item for item in values if isinstance(item, dict))
+    return records
+
+
+def _labelled_class_facts(node, label_class, value_class):
+    facts = {}
+    for wrapper in node.nodes(cls=label_class):
+        label = clean(wrapper.text()).rstrip(" :").lower()
+        if not label:
+            continue
+        parent = wrapper.parent
+        if parent is None:
+            continue
+        values = parent.nodes(cls=value_class)
+        if values:
+            facts[label] = values[0].text()
+    return facts
+
+
+def _result_count(text, *patterns):
+    for pattern in patterns:
+        match = re.search(pattern, text, re.I)
+        if match:
+            return int(match.group(1))
+    return None
+
+
+def _source_is_rendered(source):
+    return source.method in RENDERED_LIST_METHODS
+
+
+def _registered_query_value(source, key):
+    return _query_value(source.fixed_route, key)
+
+
+def _query_value(url, key):
+    expected = key.lower()
+    for actual, values in parse_qs(urlparse(url).query).items():
+        if actual.lower() == expected:
+            return values[0] if values else ""
+    return ""
 
 
 def parse_list(source, html, page_url):
@@ -163,7 +248,103 @@ def parse_list(source, html, page_url):
             url = advert_url(link.attrs["href"], page_url)
             facts = labelled(item)
             rows.append(dict(url=url, title=link.text(), platform_id=parse_qs(urlparse(url).query)["JobId"][0], reference=facts.get("job reference", ""), location=facts.get("location", ""), salary=facts.get("salary / grade", ""), contract=facts.get("employment type", ""), list_text=item.text()))
-    else:
+    elif source.method == "govuk-teaching-vacancies":
+        items = root.nodes(cls="search-results__item")
+        if not items:
+            if re.search(r"(?:no|0) (?:current )?(?:jobs|vacancies|results)|no jobs found", root.text(), re.I):
+                return []
+            raise CollectionError("GOV.UK Teaching Vacancies result list marker missing")
+        for item in items:
+            links = [
+                a for a in item.nodes("a")
+                if re.search(r"/jobs/[^/?#]+$", urlparse(a.attrs.get("href", "")).path, re.I)
+            ]
+            if not links:
+                raise CollectionError("GOV.UK result has no source-exposed advert link")
+            link = links[0]
+            url = advert_url(link.attrs["href"], page_url)
+            slug = urlparse(url).path.rstrip("/").rsplit("/", 1)[-1]
+            facts = labelled(item)
+            address = _first_text(item, tag="p", cls="address")
+            rows.append(dict(
+                url=url,
+                title=link.text(),
+                platform_id=slug,
+                reference="",
+                location=address,
+                salary=facts.get("full time equivalent salary", ""),
+                deadline=facts.get("closing date", ""),
+                list_text=item.text(),
+            ))
+    elif source.method == "oracle-cloud":
+        links = [
+            a for a in root.nodes("a", "job-list-item__link")
+            if re.search(r"/job/[^/?#]+$", urlparse(a.attrs.get("href", "")).path, re.I)
+        ]
+        advertised_count = _result_count(root.text(), r"Job search results\s+(\d+)", r"(\d+)\s+Open Jobs")
+        if advertised_count is None:
+            raise CollectionError("Oracle rendered result count marker missing")
+        if not links:
+            if advertised_count == 0:
+                return []
+            raise CollectionError("Oracle rendered job links missing")
+        for link in links:
+            url = advert_url(link.attrs["href"], page_url)
+            platform_id = urlparse(url).path.rstrip("/").rsplit("/", 1)[-1]
+            card = _ancestor(link, "job-list-item") or link.parent
+            title = _first_text(card, tag="span", cls="job-tile__title") if card else ""
+            title = title or link.text()
+            if not title:
+                raise CollectionError("Oracle rendered job title missing")
+            values = card.nodes(cls="job-list-item__job-info-value") if card else []
+            rows.append(dict(
+                url=url,
+                title=title,
+                platform_id=platform_id,
+                reference="",
+                location=values[0].text() if values else "",
+                list_text=(card or link).text(),
+                advertised_count=advertised_count,
+            ))
+    elif source.method == "itrent":
+        cards = root.nodes(cls="Mhr-jobDetail--listItem")
+        advertised_count = _result_count(root.text(), r"(\d+)\s+jobs?\s+match", r"(\d+)\s+open jobs")
+        if advertised_count is None:
+            raise CollectionError("iTrent rendered result count marker missing")
+        if not cards:
+            if advertised_count == 0:
+                return []
+            raise CollectionError("iTrent rendered vacancy cards missing")
+        for card in cards:
+            platform_id = card.attrs.get("vac-id", "").strip()
+            detail_href = card.attrs.get("bu-send", "").strip()
+            if not platform_id or not detail_href:
+                raise CollectionError("iTrent card missing VACANCY_ID or observed detail route")
+            url = advert_url(detail_href, page_url)
+            registered_wvid = source.wvid or _registered_query_value(source, "WVID")
+            observed_wvid = _query_value(url, "WVID")
+            if not registered_wvid or observed_wvid != registered_wvid:
+                raise CollectionError("iTrent detail route leaves the registered WVID")
+            observed_id = _query_value(url, "VACANCY_ID")
+            if not observed_id or observed_id != platform_id:
+                raise CollectionError("iTrent detail route disagrees with observed VACANCY_ID")
+            links = card.nodes("a", "Mhr-jobDetailTitleLink")
+            title = links[0].text() if links else ""
+            if not title:
+                raise CollectionError("iTrent card title missing")
+            facts = _labelled_class_facts(card, "Mhr-jobDetailEntry--label", "Mhr-jobDetailEntry--text")
+            rows.append(dict(
+                url=url,
+                title=title,
+                platform_id=platform_id,
+                reference="",
+                location=facts.get("location", ""),
+                salary=facts.get("salary", ""),
+                work_pattern=facts.get("basis", ""),
+                list_text=card.text(),
+                advertised_count=advertised_count,
+            ))
+    elif source.source_id == PILOTS[2]:
         lists = root.nodes(cls="hj-job-list")
         if not lists:
             raise CollectionError("HealthJobsUK employer list marker missing")
@@ -176,6 +357,8 @@ def parse_list(source, html, page_url):
             rows.append(dict(url=url, title=item.first_text("hj-jobtitle"), platform_id=re.search(r"-v(\d+)", url).group(1), reference="", organization=item.first_text("hj-employername"), location=item.first_text("hj-locationtown"), salary=re.sub(r"^Salary:\s*", "", item.first_text("hj-salary")), list_text=item.text()))
         if not rows and not re.search(r"no (?:current )?(?:jobs|vacancies)|no results", lists[0].text(), re.I):
             raise CollectionError("HealthJobsUK zero lacks an explicit empty-result message")
+    else:
+        raise CollectionError(f"No adapter is registered for source {source.source_id}")
     unique = {}
     for row in rows:
         identity = row.get("platform_id") or row["reference"]
@@ -204,6 +387,7 @@ def parse_detail(source, row, html):
     root = check_document(html)
     facts = labelled(root)
     body = ""
+    apply_url = row.get("url", "")
     if source.source_id == PILOTS[0]:
         headers = root.nodes(cls="advertheader")
         titles = root.nodes("h1", "pagetitle")
@@ -234,17 +418,111 @@ def parse_detail(source, row, html):
             raise CollectionError("NTU detail JobId disagrees with observed advert link")
         body = Document(post.get("description", "")).root.text()
         facts.update({"closing date": post.get("validThrough", ""), "employment type": post.get("employmentType", "")})
-    else:
+    elif source.method == "govuk-teaching-vacancies":
+        titles = root.nodes("h1")
+        if not titles:
+            raise CollectionError("GOV.UK advert title missing")
+        postings = [record for record in _json_ld_records(root) if record.get("@type") == "JobPosting"]
+        post = postings[0] if postings else {}
+        posted_url = post.get("url", "")
+        if posted_url and urlparse(posted_url).path != urlparse(row["url"]).path:
+            raise CollectionError("GOV.UK detail slug disagrees with observed advert link")
+        content = root.nodes(cls="editor-rendered-content")
+        body = content[0].text() if content else Document(str(post.get("description", ""))).root.text()
+        facts.update(labelled(root))
+        organization = post.get("hiringOrganization", {}).get("name", "")
+        location = _first_text(root, tag="span", cls="govuk-caption-l") or row.get("location", "")
+        salary = facts.get("full time equivalent salary", "")
+        base_salary = post.get("baseSalary", {})
+        if not salary and isinstance(base_salary, dict):
+            value = base_salary.get("value", {})
+            salary = value.get("value", "") if isinstance(value, dict) else str(value or "")
+        employment_type = post.get("employmentType", "")
+        if isinstance(employment_type, list):
+            employment_type = ", ".join(str(value) for value in employment_type)
+        facts.update({
+            "employer": organization,
+            "location": location,
+            "salary": salary,
+            "closing date": post.get("validThrough", "") or facts.get("closing date", ""),
+            "contract type": facts.get("contract type", employment_type),
+            "working pattern": facts.get("working pattern", ""),
+        })
+        apply_url = ""
+        for link in root.nodes("a"):
+            if link.attrs.get("data-link-type") == "external_advert_link" and link.attrs.get("href"):
+                candidate_url = urljoin(row["url"], link.attrs["href"])
+                if urlparse(candidate_url).scheme in {"http", "https"} and urlparse(candidate_url).netloc:
+                    apply_url = candidate_url
+                    break
+    elif source.method == "oracle-cloud":
+        titles = root.nodes("h1", "job-details__title")
+        if not titles:
+            raise CollectionError("Oracle advert title missing")
+        expected_id = row.get("platform_id", "")
+        identified = re.search(r"Job Identification\s+([^\s]+)", root.text(), re.I)
+        if identified and expected_id and identified.group(1) != expected_id:
+            raise CollectionError("Oracle detail job ID disagrees with observed advert link")
+        content = root.nodes(cls="job-details__description-content")
+        body = content[0].text() if content else ""
+        if not body:
+            raise CollectionError("Oracle advert description missing")
+        contract_match = re.search(r"Contract:\s*(.*?)(?=\s+(?:Number of posts|Location|Salary|Closing Date)\s*:|\s+Job Identification\b|$)", body, re.I)
+        salary_match = re.search(r"Salary:\s*(.*?)(?=\s+(?:Number of posts|Location|Contract|Closing Date)\s*:|\s+Job Identification\b|$)", body, re.I)
+        closing_match = re.search(r"Closing Date:\s*(.*?)(?=\s+(?:Please note|Number of posts|Location|Salary|Contract)\s*:|\s+Job Identification\b|$)", body, re.I)
+        facts.update({
+            "location": _first_text(root, tag="div", cls="job-details__subtitle") or row.get("location", ""),
+            "salary": salary_match.group(1).strip() if salary_match else row.get("salary", ""),
+            "closing date": closing_match.group(1).strip() if closing_match else "",
+            "contract": contract_match.group(1).strip() if contract_match else "",
+        })
+        apply_url = row["url"]
+    elif source.method == "itrent":
+        profiles = root.nodes(cls="Mhr-jobProfile")
+        if not profiles:
+            raise CollectionError("iTrent job profile missing")
+        profile = profiles[0]
+        profile_id = _query_value(row["url"], "VACANCY_ID")
+        if not profile_id or not row.get("platform_id") or profile_id != row["platform_id"]:
+            raise CollectionError("iTrent detail VACANCY_ID disagrees with observed card")
+        registered_wvid = source.wvid or _registered_query_value(source, "WVID")
+        observed_wvid = _query_value(row["url"], "WVID")
+        if not registered_wvid or observed_wvid != registered_wvid:
+            raise CollectionError("iTrent detail route leaves the registered WVID")
+        facts.update(_labelled_class_facts(profile, "Mhr-jobProfile--dataListLabel", "Mhr-jobProfile--dataListData"))
+        closing = _first_text(profile, cls="Mhr-jobProfile--closingDate")
+        facts["closing date"] = re.sub(r"^Apply by\s*", "", closing, flags=re.I)
+        content = profile.nodes(cls="Mhr-jobProfile--description")
+        body = content[0].text() if content else ""
+        apply_links = [
+            link for link in profile.nodes("a")
+            if "apply" in link.text().lower() and link.attrs.get("href")
+        ]
+        apply_url = advert_url(apply_links[0].attrs["href"], row["url"]) if apply_links else row["url"]
+    elif source.source_id == PILOTS[2]:
         if not root.nodes(cls="hj-job-details"):
             raise CollectionError("HealthJobsUK job summary facts missing")
         containers = [n for n in root.nodes() if n.attrs.get("id") in {"hj-job-advert", "hj-job-description"}]
         body = " ".join(n.text() for n in containers) if containers else root.text()
+        apply_url = row["url"]
+    else:
+        raise CollectionError(f"No adapter is registered for source {source.source_id}")
     if not body:
         raise CollectionError("Advert has no readable body evidence")
     location = facts.get("location", row.get("location", ""))
     if source.source_id == PILOTS[2]:
         location = ", ".join(v for v in (facts.get("site", ""), facts.get("town", "")) if v)
-    return dict(raw_location=location, raw_deadline=facts.get("closing date", facts.get("closing", row.get("deadline", ""))), raw_salary=facts.get("salary", row.get("salary", "")), raw_contract=facts.get("contract", facts.get("employment type", row.get("contract", ""))), raw_work_pattern=facts.get("hours", ""), source_reference=facts.get("reference", facts.get("job ref", row.get("reference", ""))), raw_organization=facts.get("employer", row.get("organization", source.name)), detail_body=body)
+    return dict(
+        raw_location=location,
+        raw_deadline=facts.get("closing date", facts.get("closing", row.get("deadline", ""))),
+        raw_salary=facts.get("salary", row.get("salary", "")),
+        raw_contract=facts.get("contract", facts.get("contract type", facts.get("employment type", row.get("contract", "")))),
+        raw_work_pattern=facts.get("hours", facts.get("working pattern", facts.get("basis", row.get("work_pattern", "")))),
+        source_reference=facts.get("reference", facts.get("job ref", facts.get("job reference", row.get("reference", "")))),
+        raw_organization=facts.get("employer") or row.get("organization") or source.name,
+        detail_body=body,
+        raw_apply_url=apply_url,
+    )
 
 
 class Transport:
@@ -301,6 +579,10 @@ class Transport:
                     response = page.goto(url, wait_until="domcontentloaded", timeout=self.timeout)
                     if response is None or response.status >= 400:
                         raise CollectionError(f"HTTP {response.status if response else 'no response'}: {url}")
+                    if self.source.method == "itrent":
+                        page.wait_for_function("() => document.querySelector('.Mhr-jobProfile')", timeout=self.timeout)
+                    elif self.source.method == "oracle-cloud":
+                        page.wait_for_function("() => document.querySelector('h1.job-details__title')", timeout=self.timeout)
                     html = page.content()
                     final_url = page.url
                 else:
@@ -310,9 +592,9 @@ class Transport:
                 if urlparse(final_url).netloc != urlparse(url).netloc:
                     raise CollectionError(f"Unexpected redirect: {final_url}")
                 before, after = urlparse(url), urlparse(final_url)
-                for identity_key in ("ref", "JobId", "emp"):
-                    expected = parse_qs(before.query).get(identity_key)
-                    if expected and parse_qs(after.query).get(identity_key) != expected:
+                for identity_key in ("ref", "JobId", "emp", "WVID", "VACANCY_ID"):
+                    expected = _query_value(url, identity_key)
+                    if expected and _query_value(final_url, identity_key) != expected:
                         raise CollectionError(f"Redirect lost registered/advert identity: {final_url}")
                 expected_id = re.search(r"-v\d+", before.path)
                 if expected_id and expected_id.group() not in after.path:
@@ -320,10 +602,10 @@ class Transport:
                 return html, self.save(html, final_url, key)
             except HTTPError as exc:
                 if exc.code not in {429, 500, 502, 503, 504} or attempt:
-                    raise
-            except (URLError, TimeoutError):
+                    raise CollectionError(f"HTTP request failed after retry budget ({exc.code}): {url}") from exc
+            except (URLError, TimeoutError) as exc:
                 if attempt:
-                    raise
+                    raise CollectionError(f"Request failed after retry budget: {url}") from exc
             time.sleep(1 + attempt)
         raise CollectionError("Retry budget exhausted")
 
@@ -345,7 +627,7 @@ def enumerate_source(source, transport, checkpoint, save_checkpoint):
         checkpoint["pages"].append(meta)
         save_checkpoint()
 
-    if source.source_id == PILOTS[1]:
+    if source.method == "jobtrain":
         page = transport.browser_page()
         response = page.goto(source.fixed_route, wait_until="domcontentloaded", timeout=transport.timeout)
         transport.requests += 1
@@ -379,6 +661,62 @@ def enumerate_source(source, transport, checkpoint, save_checkpoint):
             page.wait_for_function("before => new Set([...document.querySelectorAll('.job-card a[href*=JobDetail]')].map(a=>a.href)).size > before", arg=before, timeout=transport.timeout)
         else:
             raise CollectionError("NTU normal Load More exceeded bounded page budget")
+    elif source.method == "itrent":
+        page = transport.browser_page()
+        response = page.goto(source.fixed_route, wait_until="domcontentloaded", timeout=transport.timeout)
+        transport.requests += 1
+        if response is None or response.status >= 400:
+            raise CollectionError(f"iTrent list HTTP {response.status if response else 'no response'}")
+        page.wait_for_function("() => document.querySelector('#main-find-jobs')", timeout=transport.timeout)
+        find_jobs = page.locator("#main-find-jobs")
+        if not find_jobs.is_visible():
+            raise CollectionError("iTrent Find jobs control is not visible")
+        find_jobs.click(timeout=transport.timeout)
+        page.wait_for_function("() => /\\d+\\s+jobs?\\s+match/i.test(document.body.innerText) || /\\d+\\s+open jobs/i.test(document.body.innerText)", timeout=transport.timeout)
+        for step in range(100):
+            html = page.content()
+            meta = transport.save(html, page.url, f"itrent-list:{step}")
+            capture(html, page.url, meta)
+            total = _result_count(Document(html).root.text(), r"(\d+)\s+jobs?\s+match", r"(\d+)\s+open jobs")
+            if total is None:
+                raise CollectionError("iTrent rendered result count disappeared")
+            checkpoint["advertised_count"] = total
+            if len(rows) > total:
+                raise CollectionError("iTrent vacancy identities exceed exposed result count")
+            more = page.locator(".Mhr-jobSearchMoreResultsButton")
+            if not more.is_visible():
+                if len(rows) != total:
+                    raise CollectionError(f"iTrent stopped at {len(rows)} of {total} jobs")
+                break
+            before = len(rows)
+            more.click(timeout=transport.timeout)
+            page.wait_for_function("before => document.querySelectorAll('.Mhr-jobDetail--listItem[vac-id]').length > before", arg=before, timeout=transport.timeout)
+        else:
+            raise CollectionError("iTrent normal Show more results exceeded bounded page budget")
+    elif source.method == "oracle-cloud":
+        page = transport.browser_page()
+        response = page.goto(source.fixed_route, wait_until="domcontentloaded", timeout=transport.timeout)
+        transport.requests += 1
+        if response is None or response.status >= 400:
+            raise CollectionError(f"Oracle list HTTP {response.status if response else 'no response'}")
+        page.wait_for_function("() => /Job search results\\s+\\d+/i.test(document.body.innerText) && (Number((document.body.innerText.match(/Job search results\\s+(\\d+)/i) || [])[1]) === 0 || document.querySelectorAll('a.job-list-item__link[href*=\\\"/job/\\\"]').length > 0)", timeout=transport.timeout)
+        for step in range(100):
+            html = page.content()
+            meta = transport.save(html, page.url, f"oracle-list:{step}")
+            capture(html, page.url, meta)
+            total = _result_count(Document(html).root.text(), r"Job search results\s+(\d+)", r"(\d+)\s+Open Jobs")
+            if total is None:
+                raise CollectionError("Oracle rendered result count disappeared")
+            checkpoint["advertised_count"] = total
+            if len(rows) > total:
+                raise CollectionError("Oracle vacancy identities exceed exposed result count")
+            if len(rows) == total:
+                break
+            before = len(rows)
+            page.locator("body").press("End")
+            page.wait_for_function("before => new Set([...document.querySelectorAll('a.job-list-item__link[href*=\\\"/job/\\\"]')].map(a => a.href)).size > before", arg=before, timeout=transport.timeout)
+        else:
+            raise CollectionError("Oracle normal infinite scroll exceeded bounded page budget")
     else:
         url = source.fixed_route
         seen = set()
@@ -386,7 +724,7 @@ def enumerate_source(source, transport, checkpoint, save_checkpoint):
             if url in seen or len(seen) >= 100:
                 raise CollectionError("Normal pagination repeated/exceeded page budget")
             seen.add(url)
-            html, meta = transport.fetch(url, rendered=source.source_id == PILOTS[2])
+            html, meta = transport.fetch(url, rendered=source.method in RENDERED_DETAIL_METHODS)
             capture(html, meta["url"], meta)
             url = next_page(source, html, meta["url"])
     checkpoint["enumeration_complete"] = True
@@ -408,9 +746,10 @@ def collect(source_id, working_root, **options):
 
 
 def _collect(source_id, working_root, *, channel=None, headed=False, stop_after=None, transport_factory=Transport):
-    source = load_registry().get(source_id)
-    if source_id not in PILOTS:
-        raise ValueError("Only the three released pilot adapters are supported")
+    registry = load_registry()
+    source = registry.get(source_id)
+    if source_id not in SUPPORTED_SOURCES:
+        raise ValueError(f"No deterministic adapter is registered for source {source_id}")
     root = Path(working_root)
     store = WorkingStateStore(root)
     store.ensure()
@@ -418,10 +757,29 @@ def _collect(source_id, working_root, *, channel=None, headed=False, stop_after=
     existing = {c.detail_url: c for c in store.load_raw_candidates() if c.source_id == source_id}
     previous = runs.get(source_id)
     checkpoint_path = root / f"{source_id}-checkpoint.json"
-    checkpoint = json.loads(checkpoint_path.read_text(encoding="utf-8")) if checkpoint_path.exists() else {}
+    if checkpoint_path.exists():
+        try:
+            checkpoint = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise CollectionError(f"Invalid or unreadable source checkpoint: {checkpoint_path.name}") from exc
+        if not isinstance(checkpoint, dict):
+            raise CollectionError("Source checkpoint must be a JSON object")
+    else:
+        checkpoint = {}
+    for key, expected in (
+        ("source_id", source_id),
+        ("registry_id", registry.registry_id),
+        ("registry_schema_version", registry.schema_version),
+    ):
+        observed = checkpoint.get(key)
+        if observed is not None and observed != expected:
+            raise CollectionError(f"Source checkpoint {key} disagrees with current registry/source")
+        checkpoint[key] = expected
     if checkpoint.get("fixed_route", source.fixed_route) != source.fixed_route:
         raise CollectionError("Registry route changed; start a fresh run rather than reuse stale evidence")
     checkpoint["fixed_route"] = source.fixed_route
+    if previous and previous.status is SourceRunStatus.RUNNING and not checkpoint_path.exists():
+        raise CollectionError("Stale RUNNING source state has no checkpoint; start a fresh run")
     if previous and previous.status in {SourceRunStatus.OK, SourceRunStatus.EMPTY}:
         if len(existing) != previous.candidate_count or not checkpoint.get("enumeration_complete"):
             raise CollectionError("Completed source checkpoint disagrees with raw candidate evidence")
@@ -432,7 +790,14 @@ def _collect(source_id, working_root, *, channel=None, headed=False, stop_after=
         temporary.write_text(json.dumps(checkpoint, ensure_ascii=False, indent=2), encoding="utf-8")
         temporary.replace(checkpoint_path)
 
-    method = {PILOTS[0]: "http-html", PILOTS[1]: "rendered-load-more", PILOTS[2]: "rendered-employer-pagination"}[source_id]
+    method = {
+        PILOTS[0]: "http-html",
+        PILOTS[1]: "rendered-load-more",
+        PILOTS[2]: "rendered-employer-pagination",
+        "govuk-teaching-vacancies": "http-pagination",
+        "nottingham-city-council": "oracle-rendered-infinite-scroll",
+        **{source_name: "itrent-rendered-load-more" for source_name in ITRENT_SOURCES},
+    }[source_id]
     run = SourceRun(source_id, collection_method=method)
     run.begin(now())
     runs[source_id] = run
@@ -450,7 +815,7 @@ def _collect(source_id, working_root, *, channel=None, headed=False, stop_after=
             list_interrupted = isinstance(exc, KeyboardInterrupt)
         for row in rows:
             cached = existing.get(row["url"])
-            candidate = cached or RawCandidate(source_id=source_id, source_family=source.family, raw_organization=row.get("organization", source.name), raw_title=row["title"], raw_location=row.get("location", ""), raw_salary=row.get("salary", ""), raw_deadline=row.get("deadline", ""), raw_contract=row.get("contract", ""), source_reference=row["reference"], source_platform_id=row["platform_id"], list_url=source.fixed_route, source_url=source.fixed_route, detail_url=row["url"], apply_url=row["url"], collected_at=now(), collection_method=method, provenance={"href_observed": True, "list_text": row.get("list_text", ""), "section": row.get("context", ""), "list_evidence": row.get("list_evidence", {})})
+            candidate = cached or RawCandidate(source_id=source_id, source_family=source.family, raw_organization=row.get("organization", source.name), raw_title=row["title"], raw_location=row.get("location", ""), raw_salary=row.get("salary", ""), raw_deadline=row.get("deadline", ""), raw_contract=row.get("contract", ""), raw_work_pattern=row.get("work_pattern", ""), source_reference=row["reference"], source_platform_id=row["platform_id"], list_url=source.fixed_route, source_url=source.fixed_route, detail_url=row["url"], apply_url=row["url"], collected_at=now(), collection_method=method, provenance={"href_observed": True, "list_text": row.get("list_text", ""), "section": row.get("context", ""), "list_evidence": row.get("list_evidence", {})})
             candidates.append(candidate)
         store.replace_source_candidates(source_id, candidates)
         if list_interrupted:
@@ -461,10 +826,11 @@ def _collect(source_id, working_root, *, channel=None, headed=False, stop_after=
             if candidate.status == RawCandidateStatus.DETAIL_COMPLETE:
                 continue
             try:
-                html, meta = transport.fetch(candidate.detail_url, rendered=source_id == PILOTS[2])
+                html, meta = transport.fetch(candidate.detail_url, rendered=_source_is_rendered(source))
                 facts = parse_detail(source, rows[index], html)
+                apply_url = facts.pop("raw_apply_url", candidate.apply_url)
                 provenance = {key: value for key, value in candidate.provenance.items() if key != "detail_error"}
-                candidates[index] = replace(candidate, **facts, source_url=candidate.detail_url, status=RawCandidateStatus.DETAIL_COMPLETE, provenance={**provenance, "detail_evidence": meta})
+                candidates[index] = replace(candidate, **facts, apply_url=apply_url, source_url=candidate.detail_url, status=RawCandidateStatus.DETAIL_COMPLETE, provenance={**provenance, "detail_evidence": meta})
             except (Exception, KeyboardInterrupt) as exc:
                 failure = f"{candidate.detail_url}: {type(exc).__name__}: {exc}"
                 failures.append(failure)
@@ -494,7 +860,7 @@ def _collect(source_id, working_root, *, channel=None, headed=False, stop_after=
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source", required=True, choices=PILOTS)
+    parser.add_argument("--source", required=True, choices=SUPPORTED_SOURCES)
     parser.add_argument("--run", required=True, help="A named same-run directory under ignored .weekly-job-update")
     parser.add_argument("--browser-channel", default=None, help="Installed browser channel, e.g. msedge; default bundled Chromium")
     parser.add_argument("--headed", action="store_true", help="Ordinary minimised browser; no challenge bypass")

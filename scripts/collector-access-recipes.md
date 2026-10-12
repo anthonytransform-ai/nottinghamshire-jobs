@@ -1,9 +1,10 @@
-# Pilot source access recipes
+# Source access recipes and expansion assessments
 
-ANT-259 mechanical traversal knowledge, established 12 October 2026. These
-recipes reference registry IDs. `source-registry.json` remains the sole owner of
-source routes, families, methods and allowed fallbacks. Eligibility, geography,
-classification, deduplication and participant summaries remain Playbook-owned.
+ANT-259 mechanical traversal knowledge and ANT-260 expansion assessments,
+established 12 October 2026. These recipes reference registry IDs.
+`source-registry.json` remains the sole owner of source routes, families,
+methods and allowed fallbacks. Eligibility, geography, classification,
+deduplication and participant summaries remain Playbook-owned.
 
 Counts and control states below are dated observations from the 2026-10-12 proof,
 not expected counts for future runs. Every future run must dynamically enumerate
@@ -121,6 +122,121 @@ the current live source and apply the completion/failure contracts below.
   separate employer-list identity comparison matched all 45 identities with no
   missing or extra items. Future vacancy counts are dynamic; any future failure
   must remain visible through PARTIAL/ERROR.
+
+## govuk-teaching-vacancies
+
+- **Registry ID:** `govuk-teaching-vacancies`.
+- **List:** request the exact registered Nottinghamshire query with ordinary
+  HTTP. The recognised list surface is `main#main-content` with
+  `.search-results__item` entries and a normal `nav[aria-label="Pagination"]`.
+  Follow the exposed `rel="next"` link while it remains on the registered
+  `teaching-vacancies.service.gov.uk` host. The normal page size observed on
+  2026-10-12 was 10.
+- **Identity/link:** retain each `.view-vacancy-link` (or equivalent
+  `/jobs/<slug>` link) exactly as exposed. The slug is the platform identity;
+  do not manufacture a replacement from the title.
+- **Advert:** ordinary HTTP GET of the retained `/jobs/<slug>` href. The
+  detail page exposes `h1`, the participant-facing address caption, the
+  `#job-details` summary list, `.editor-rendered-content` job content and a
+  `JobPosting` JSON-LD record. Preserve the optional external application link
+  only when the advert exposes it.
+- **Completion:** finish every normal `page=` result until there is no `rel=next`
+  control. A recognised zero requires the page's explicit zero-result evidence;
+  a missing result container is an error. A repeated/ambiguous next route is a
+  failure.
+- **OK/EMPTY:** normal pagination completion plus readable detail processing for
+  every captured vacancy; EMPTY requires an explicit genuine zero.
+- **PARTIAL/ERROR:** incomplete pagination or detail failures with candidates ->
+  PARTIAL; inaccessible/unrecognised list -> ERROR. Never convert a static or
+  blocked zero into EMPTY.
+- **Fallback:** use only the registered fixed route and normal `page=` sequence.
+  Do not substitute a generic school search or broaden location discovery.
+- **Completed proof — 2026-10-12:** the fixed route returned HTTP 200 with 123
+  results across 13 visible pages. A live detail page exposed the expected
+  slug, Nottinghamshire address, closing date, contract/work pattern, salary,
+  job description and optional direct application link. Counts are dated
+  observations, not future expectations.
+
+## iTrent / WebRecruitment family
+
+- **Registry IDs:** `ashfield-district-council`, `mansfield-district-council`,
+  `bassetlaw-district-council`, `newark-and-sherwood-district-council`,
+  `west-nottinghamshire-college`, `north-notts-college-rnn-group`.
+- **List:** open the exact registry route and retain its exact WVID. Ordinary
+  rendered Chromium/Edge access is the normal method: wait for the registered
+  page's `#main-find-jobs`, click the normal `Find jobs` control, then wait for
+  `.Mhr-jobSearchMatchCount`/result cards. Do not mix results between WVIDs.
+- **Identity/link:** each rendered `.Mhr-jobDetail--listItem` exposes a real
+  `vac-id` and `bu-send` detail route. Preserve both. The `VACANCY_ID` in the
+  observed route is the platform identity; it is not automatically the human
+  `Job reference` shown in the detail facts.
+- **Pagination:** process all rendered cards, then click the normal
+  `.Mhr-jobSearchMoreResultsButton` while it is visible. Finish only when the
+  unique `vac-id` count equals the agreeing exposed result count. A stalled
+  load, missing/ambiguous count or early hidden control is PARTIAL, not EMPTY.
+- **Advert:** use the observed `bu-send` route in the same rendered session.
+  Detail evidence is `.Mhr-jobProfile`, including the title/location/closing
+  fields, `Mhr-jobProfile--dataList*` facts, `Mhr-jobProfile--description` and
+  the observed `Apply online` href when available.
+- **OK/EMPTY:** normal rendered result completion and readable details for every
+  captured identity; EMPTY requires the rendered result count to be zero and
+  no cards.
+- **PARTIAL/ERROR:** detail or load-more failure with useful cards -> PARTIAL;
+  blocked/unrecognised rendered board without candidates -> ERROR. A direct
+  HTTP 403 or session error is an access limitation, not a zero result.
+- **Fallback:** use only each source's registered rendered/current board or
+  exact-domain fallback. Do not guess vacancy IDs, inspect undocumented
+  population endpoints or merge employers sharing the host.
+- **Completed proof — 2026-10-12:** the Ashfield WVID `6777852QI7` rendered
+  normally, exposed 12 current jobs, loaded 10 cards followed by two more, and
+  exposed a real `VACANCY_ID`/`bu-send` route plus readable detail facts and an
+  Apply-online destination. The other five records remain isolated by their
+  exact registry WVIDs; counts are dynamic.
+
+## nottingham-city-council
+
+- **Registry ID:** `nottingham-city-council`.
+- **List:** the fixed Oracle route is a JavaScript shell for ordinary HTTP, so
+  use ordinary rendered Chromium/Edge access and wait for the visible
+  `Job search results <count>` surface. Read actual `a.job-list-item__link`
+  targets ending in `/job/<id>`; do not depend on a static shell or an
+  undocumented requisition endpoint.
+- **Completion:** follow the normal infinite-scroll behaviour to the bottom,
+  waiting for each batch to settle. Finish only when the unique job IDs equal
+  the exposed result count. A stalled scroll/count mismatch is PARTIAL. A zero
+  is valid only when the rendered count is zero and no job links are present.
+- **Advert:** navigate to each observed `/job/<id>` route. Preserve the current
+  title, subtitle/location, description and visible job-identification/apply
+  facts. The detail route itself remains the participant-facing destination;
+  do not click `Apply Now` or attempt submission.
+- **OK/EMPTY:** completed count-bounded rendered enumeration plus readable
+  details for every captured job; EMPTY requires a rendered zero.
+- **PARTIAL/ERROR:** useful jobs plus a scroll/detail failure -> PARTIAL; no
+  trustworthy rendered result surface -> ERROR. The optional public
+  requisition endpoint is not required for success and must not become a
+  population dependency.
+- **Fallback:** use only the registered Oracle site and its current rendered
+  result surface. Do not reverse-engineer or reconcile undocumented backend
+  populations.
+- **Completed proof — 2026-10-12:** the fixed route rendered 54 open jobs;
+  normal scrolling exposed 25, then 50, then 54 unique `/job/<id>` links, and a
+  live detail exposed title, Nottinghamshire location, description, closing
+  date and job identification. Counts are dated observations, not future
+  expectations.
+
+## nottinghamshire-tal assessment
+
+- **Registry ID:** `nottinghamshire-tal`.
+- **Assessment — 2026-10-12:** the fixed registered route returned the Oleeo
+  “Quick Check Needed” Altcha/human-verification page rather than a vacancy
+  list. No candidate list, identity or detail evidence was available through
+  the normal bounded route in this proof.
+- **Boundary:** do not solve the challenge, build a stealth/proxy bypass or
+  repeatedly rediscover the portal. Retain the registered exact-domain fallback
+  semantics for the agent-assisted weekly workflow; if that fallback cannot
+  provide a trustworthy current list, record PARTIAL/ERROR rather than EMPTY.
+- **Decision:** leave TAL agent-assisted for ANT-260. No deterministic TAL
+  adapter is authorised by this evidence.
 
 ## Working-state and investigation boundary
 

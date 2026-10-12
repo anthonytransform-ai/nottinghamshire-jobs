@@ -516,6 +516,8 @@ class WorkingStateStore:
 
     def append_raw_candidate(self, candidate: RawCandidate) -> None:
         self.ensure()
+        existing = self.load_raw_candidates()
+        self._validate_source_candidates([*existing, candidate])
         with self.paths.raw_candidates.open("a", encoding="utf-8", newline="\n") as handle:
             handle.write(json.dumps(candidate.to_mapping(), ensure_ascii=False, sort_keys=True))
             handle.write("\n")
@@ -533,12 +535,14 @@ class WorkingStateStore:
                     candidates.append(RawCandidate.from_mapping(value))
                 except (json.JSONDecodeError, TypeError, ValueError) as exc:
                     raise ValueError(f"Invalid raw candidate at line {line_number}") from exc
+        self._validate_source_candidates(candidates)
         return candidates
 
     def replace_source_candidates(self, source_id: str, candidates: Sequence[RawCandidate]) -> None:
         """Atomically checkpoint one source without discarding other source evidence."""
         if any(candidate.source_id != source_id for candidate in candidates):
             raise ValueError("Replacement candidates must belong to the selected source")
+        self._validate_source_candidates(candidates)
         retained = [candidate for candidate in self.load_raw_candidates() if candidate.source_id != source_id]
         self.ensure()
         temporary = self.paths.raw_candidates.with_suffix(".jsonl.tmp")
@@ -546,6 +550,27 @@ class WorkingStateStore:
             for candidate in [*retained, *candidates]:
                 handle.write(json.dumps(candidate.to_mapping(), ensure_ascii=False, sort_keys=True) + "\n")
         temporary.replace(self.paths.raw_candidates)
+
+    @staticmethod
+    def _validate_source_candidates(candidates: Sequence[RawCandidate]) -> None:
+        """Reject repeated platform identities or observed advert URLs per source."""
+
+        seen_urls: set[tuple[str, str]] = set()
+        seen_platform_ids: set[tuple[str, str]] = set()
+        for candidate in candidates:
+            source_key = candidate.source_id
+            detail_url = candidate.detail_url.strip()
+            platform_id = candidate.source_platform_id.strip()
+            if detail_url:
+                key = (source_key, detail_url)
+                if key in seen_urls:
+                    raise ValueError(f"Duplicate raw candidate detail URL for source {source_key}: {detail_url}")
+                seen_urls.add(key)
+            if platform_id:
+                key = (source_key, platform_id)
+                if key in seen_platform_ids:
+                    raise ValueError(f"Duplicate raw candidate platform identity for source {source_key}: {platform_id}")
+                seen_platform_ids.add(key)
 
     def save_draft_candidates(self, candidates: Sequence[Mapping[str, Any]]) -> None:
         self._write_json(self.paths.draft_candidates, list(candidates))
