@@ -153,7 +153,7 @@
     if (!summary) {
       return '';
     }
-    return `<div class="job-row__summary"><p class="job-row__summary-label">What you'd do</p><p class="job-row__summary-text">${escapeHtml(summary)}</p></div>`;
+    return `<p class="job-summary"><strong>What you'd do</strong><br>${escapeHtml(summary)}</p>`;
   }
 
   if (typeof module !== 'undefined' && module.exports) {
@@ -185,6 +185,12 @@
     jobArea: document.querySelector('#job-area-filter'),
     organisation: document.querySelector('#organisation-filter'),
     location: document.querySelector('#location-filter'),
+    workPattern: document.querySelector('#work-pattern-filter'),
+    filterButton: document.querySelector('#filter-button'),
+    filterPanel: document.querySelector('#filter-panel'),
+    filterCount: document.querySelector('#filter-count'),
+    activeChips: document.querySelector('#active-chips'),
+    clearFilters: document.querySelector('#clear-filters'),
     sort: document.querySelector('#sort-filter'),
     reset: document.querySelector('#reset-filters'),
     lastChecked: document.querySelector('#last-checked'),
@@ -343,13 +349,6 @@
     select.append(fragment);
   }
 
-  function icon(name) {
-    if (name === 'location') {
-      return '<svg class="job-row__icon" aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M12 21s7-6.05 7-12a7 7 0 1 0-14 0c0 5.95 7 12 7 12Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path><circle cx="12" cy="9" r="2.25" fill="none" stroke="currentColor" stroke-width="2"></circle></svg>';
-    }
-    return '<svg class="job-area__icon" aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M4 8.5h16v11H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path><path d="M8 8.5V6.75A1.75 1.75 0 0 1 9.75 5h4.5A1.75 1.75 0 0 1 16 6.75V8.5M4 13h16M10 13v1.5h4V13" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path></svg>';
-  }
-
   function displayValue(value, fallback) {
     return value || fallback;
   }
@@ -360,35 +359,35 @@
       return '';
     }
 
-    const contract = [job.work_pattern, job.contract_type].filter(Boolean).join(' · ') || 'Work pattern not stated';
     const location = displayValue(job.location || job.location_area, 'Location not stated');
     const salary = displayValue(job.salary, 'Salary not stated');
     const urgency = urgencyLabel(job, state.londonNow);
     const linkPresentation = getApplyLinkPresentation(job, state.applyUrlCounts);
     const summaryMarkup = renderSummaryMarkup(job);
-    const rowClass = summaryMarkup ? 'job-row job-row--has-summary' : 'job-row';
     const referenceHint = linkPresentation.reference
-      ? `<p class="job-row__reference">Reference: <span>${escapeHtml(linkPresentation.reference)}</span></p>`
+      ? `<p class="job-reference">Reference: <span>${escapeHtml(linkPresentation.reference)}</span></p>`
       : '';
     const closingDateMarkup = isDateOnly(job.closing_date)
-      ? `<time class="job-row__date" datetime="${escapeHtml(job.closing_date)}">${escapeHtml(formatClosingDate(job))}</time>`
-      : `<span class="job-row__date">${escapeHtml(formatClosingDate(job))}</span>`;
+      ? `<time datetime="${escapeHtml(job.closing_date)}">${escapeHtml(formatClosingDate(job))}</time>`
+      : `<span>${escapeHtml(formatClosingDate(job))}</span>`;
 
-    return `<article class="${rowClass}">
-      <div class="job-row__primary">
+    return `<article class="job-row">
+      <div class="job-main">
         <h3 class="job-title">${escapeHtml(displayValue(job.job_title, 'Untitled vacancy'))}</h3>
-        <p class="job-organization">${escapeHtml(displayValue(job.organization, 'Organisation not stated'))}</p>
+        <p class="job-org">${escapeHtml(displayValue(job.organization, 'Organisation not stated'))}</p>
         ${referenceHint}
-        <p class="job-area">${icon('briefcase')}<span>${escapeHtml(displayValue(job.job_area, 'Job area not stated'))}</span></p>
+        <div class="job-tags"><span class="tag">${escapeHtml(displayValue(job.job_area, 'Job area not stated'))}</span><span class="tag">${escapeHtml(displayValue(job.work_pattern, 'Work pattern not stated'))}</span></div>
+        ${summaryMarkup}
       </div>
-      ${summaryMarkup}
-      <div class="job-row__location-group">
-        <div class="job-row__location">${icon('location')}<span>${escapeHtml(location)}</span></div>
-        <div class="job-row__contract"><span>${escapeHtml(contract)}</span></div>
+      <div class="job-facts">
+        <div class="fact"><span class="fact-label">Location</span><span class="fact-value">${escapeHtml(location)}</span></div>
+        <div class="fact"><span class="fact-label">Salary</span><span class="fact-value">${escapeHtml(salary)}</span></div>
+        <div class="fact"><span class="fact-label">Closing</span><span class="fact-value">${urgency ? `<span class="urgency">${escapeHtml(urgency)}</span><br>` : ''}${closingDateMarkup}</span></div>
       </div>
-      <div class="job-row__salary">${escapeHtml(salary)}</div>
-      <div class="job-row__deadline">${urgency ? `<span class="job-row__urgency">${escapeHtml(urgency)}</span>` : ''}${closingDateMarkup}</div>
-      <a class="job-apply" href="${escapeHtml(applyUrl)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(linkPresentation.ariaLabel)}">${escapeHtml(linkPresentation.label)}</a>
+      <div class="job-action">
+        <a class="apply-button${linkPresentation.isShared ? ' secondary' : ''}" href="${escapeHtml(applyUrl)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(linkPresentation.ariaLabel)}">${escapeHtml(linkPresentation.label)}</a>
+        ${linkPresentation.isShared ? '<span class="apply-note">This employer uses a shared vacancies page.</span>' : ''}
+      </div>
     </article>`;
   }
 
@@ -398,6 +397,7 @@
       jobArea: elements.jobArea.value,
       organisation: elements.organisation.value,
       location: elements.location.value,
+      workPattern: elements.workPattern.value,
       sort: elements.sort.value
     };
   }
@@ -444,22 +444,43 @@
       const areaMatches = !filters.jobArea || job.job_area === filters.jobArea;
       const organisationMatches = !filters.organisation || job.organization === filters.organisation;
       const locationMatches = !filters.location || job.location_area === filters.location;
-      return keywordMatches && areaMatches && organisationMatches && locationMatches;
+      const patternMatches = !filters.workPattern || job.work_pattern === filters.workPattern;
+      return keywordMatches && areaMatches && organisationMatches && locationMatches && patternMatches;
     });
     return sortJobs(jobs, filters.sort);
   }
 
   function hasActiveFilters() {
-    return Boolean(elements.keyword.value.trim() || elements.jobArea.value || elements.organisation.value || elements.location.value);
+    return Boolean(elements.keyword.value.trim() || elements.jobArea.value || elements.organisation.value || elements.location.value || elements.workPattern.value);
   }
 
-  function showState(title, description, includeReset) {
+  const filterDimensions = [
+    ['jobArea', 'Job area'], ['location', 'Location'],
+    ['workPattern', 'Work pattern'], ['organisation', 'Organisation']
+  ];
+
+  function renderFilterChips() {
+    const active = filterDimensions.filter(([key]) => elements[key].value);
+    elements.filterCount.textContent = String(active.length);
+    elements.activeChips.innerHTML = active.map(([key, label]) =>
+      `<span class="chip">${escapeHtml(label)}: ${escapeHtml(elements[key].value)}<button type="button" data-clear="${key}" aria-label="Remove ${escapeHtml(label)} filter">×</button></span>`
+    ).join('');
+  }
+
+  function clearFilterDimensions() {
+    filterDimensions.forEach(([key]) => { elements[key].value = ''; });
+    render();
+  }
+
+  function setFilterPanelOpen(open) {
+    elements.filterPanel.hidden = !open;
+    elements.filterPanel.classList.toggle('is-open', open);
+    elements.filterButton.setAttribute('aria-expanded', String(open));
+  }
+
+  function showState(title, description) {
     elements.stateMessage.hidden = false;
-    elements.stateMessage.innerHTML = `<p class="state-message__title">${escapeHtml(title)}</p><p>${escapeHtml(description)}</p>${includeReset ? '<button class="reset-button state-reset" type="button">Reset filters</button>' : ''}`;
-    const stateReset = elements.stateMessage.querySelector('.state-reset');
-    if (stateReset) {
-      stateReset.addEventListener('click', resetFilters);
-    }
+    elements.stateMessage.innerHTML = `<p class="state-message__title">${escapeHtml(title)}</p><p>${escapeHtml(description)}</p>`;
   }
 
   function hideState() {
@@ -476,6 +497,8 @@
     const active = hasActiveFilters();
     elements.resultsHeading.textContent = `${jobs.length} ${jobs.length === 1 ? 'job' : 'jobs'} found`;
     elements.reset.hidden = !active;
+    renderFilterChips();
+    elements.jobList.hidden = jobs.length === 0;
 
     if (jobs.length > 0) {
       hideState();
@@ -485,9 +508,9 @@
 
     elements.jobList.innerHTML = '';
     if (state.currentJobs.length === 0) {
-      showState('There are currently no vacancies in the list.', 'Please check again after the next update.', false);
+      showState('There are currently no vacancies in the list.', 'Please check again after the next update.');
     } else {
-      showState('No jobs match these filters.', 'Try changing or clearing one of your filters.', active);
+      showState('No jobs match these choices', 'Try a broader keyword or clear one of the filters.');
     }
   }
 
@@ -496,6 +519,7 @@
     elements.jobArea.value = '';
     elements.organisation.value = '';
     elements.location.value = '';
+    elements.workPattern.value = '';
     elements.sort.value = 'closing-soonest';
     render();
     elements.keyword.focus();
@@ -509,6 +533,7 @@
     populateSelect(elements.jobArea, uniqueSorted(state.currentJobs, 'job_area'));
     populateSelect(elements.organisation, uniqueSorted(state.currentJobs, 'organization'));
     populateSelect(elements.location, uniqueSorted(state.currentJobs, 'location_area'));
+    populateSelect(elements.workPattern, uniqueSorted(state.currentJobs, 'work_pattern'));
   }
 
   function visibleJobs(records, londonNow) {
@@ -561,7 +586,8 @@
     elements.currentVacancies.textContent = '—';
     elements.lastChecked.textContent = '—';
     elements.jobList.innerHTML = '';
-    showState('The job list is temporarily unavailable.', 'Please try again later.', false);
+    elements.jobList.hidden = true;
+    showState('The job list is temporarily unavailable.', 'Please try again later.');
   }
 
   async function loadJobs() {
@@ -579,9 +605,25 @@
   }
 
   elements.keyword.addEventListener('input', render);
-  [elements.jobArea, elements.organisation, elements.location, elements.sort]
+  [elements.jobArea, elements.organisation, elements.location, elements.workPattern, elements.sort]
     .forEach((control) => control.addEventListener('change', render));
   elements.reset.addEventListener('click', resetFilters);
+  elements.clearFilters.addEventListener('click', clearFilterDimensions);
+  elements.filterButton.addEventListener('click', () => setFilterPanelOpen(elements.filterPanel.hidden));
+  elements.filterPanel.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      setFilterPanelOpen(false);
+      elements.filterButton.focus();
+    }
+  });
+  elements.activeChips.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-clear]');
+    if (button && filterDimensions.some(([key]) => key === button.dataset.clear)) {
+      elements[button.dataset.clear].value = '';
+      render();
+      elements.filterButton.focus();
+    }
+  });
 
   loadJobs();
   window.setInterval(refreshExpiryVisibility, 60000);
