@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ANT-262 — Nottinghamshire Jobs visual / UX fixture</title>
+<style>
+  :root{
+    --bg:#fffaf5;
+    --surface:#fff;
+    --surface-soft:#fff6ee;
+    --surface-subtle:#fff1e5;
+    --surface-warm:#ffe0c3;
+    --text:#17191d;
+    --muted:#4c5561;
+    --soft:#606773;
+    --border-subtle:#f0e5dc;
+    --border:#dccbc0;
+    --border-strong:#947b69;
+    --accent-soft:#fbab6b;
+    --accent:#f79549;
+    --accent-hover:#e8782c;
+    --accent-deep:#9d3b0e;
+    --accent-ink:#111113;
+    --focus:#7651cb;
+    --warning:#805410;
+    --danger:#ae263a;
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    --r-sm:12px;
+    --r-md:16px;
+    --r-lg:21px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#e9e4df;color:var(--text);font-family:var(--font);font-size:16px;line-height:1.5}
+  button,input,select{font:inherit}
+  button,a,input,select{-webkit-tap-highlight-color:transparent}
+  button{cursor:pointer}
+  a{color:var(--accent-deep)}
+  :focus-visible{outline:3px solid var(--focus);outline-offset:3px}
+
+  .fixture-toolbar{
+    position:sticky;top:0;z-index:1000;display:flex;align-items:center;justify-content:space-between;
+    gap:12px;padding:10px 14px;background:#17191d;color:#fff;font-size:13px
+  }
+  .fixture-toolbar strong{font-size:13px}
+  .fixture-toolbar__controls{display:flex;gap:8px;flex-wrap:wrap}
+  .fixture-toolbar button{
+    min-height:34px;padding:5px 10px;border:1px solid #5e636b;border-radius:9px;background:#2a2d32;color:#fff
+  }
+  .fixture-toolbar button.is-active{background:#fff;color:#17191d}
+  .fixture-note{opacity:.75}
+  .preview-wrap{padding:24px}
+  .preview-frame{
+    width:100%;max-width:1440px;margin:0 auto;background:var(--bg);
+    box-shadow:0 18px 60px rgb(23 25 29 / 18%);container-type:inline-size;overflow:hidden;
+  }
+
+  .site{min-height:100vh;background:var(--bg);color:var(--text)}
+  .page-width{width:min(1180px,calc(100% - 48px));margin-inline:auto}
+  .site-header{
+    background:rgb(255 250 245 / 96%);border-bottom:1px solid var(--border-subtle)
+  }
+  .site-header__inner{
+    min-height:82px;display:flex;align-items:center;justify-content:space-between;gap:24px;padding-block:12px
+  }
+  .brand{display:flex;align-items:center;gap:12px;color:var(--text);text-decoration:none;min-width:0}
+  .brand img{width:52px;height:52px;object-fit:contain;border-radius:14px;background:#fff}
+  .brand-copy{display:grid;gap:1px;min-width:0}
+  .brand-copy strong{font-size:18px;line-height:1.15}
+  .brand-copy span{color:var(--soft);font-size:12px;line-height:1.2}
+  .site-nav{display:flex;align-items:center;gap:6px}
+  .site-nav a{
+    min-height:44px;display:inline-flex;align-items:center;padding:8px 12px;border-radius:12px;
+    color:var(--muted);font-weight:650;text-decoration:none
+  }
+  .site-nav a[aria-current="page"]{background:var(--surface-subtle);color:var(--accent-deep)}
+  .site-nav a:hover{background:var(--surface-soft);color:var(--text)}
+
+  .hero-band{background:linear-gradient(180deg,var(--surface-warm),var(--surface-soft));border-bottom:1px solid var(--border-subtle)}
+  .hero{padding:42px 0 34px}
+  .eyebrow{margin:0;color:var(--accent-deep);font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
+  h1{max-width:760px;margin:8px 0 0;font-size:clamp(2.25rem,5vw,3.4rem);line-height:1.04;letter-spacing:-.035em}
+  .lede{max-width:720px;margin:14px 0 0;color:var(--muted);font-size:18px;line-height:1.55}
+  .hero-meta{display:flex;align-items:center;flex-wrap:wrap;gap:8px 18px;margin-top:22px;color:var(--muted);font-size:14px}
+  .hero-meta strong{color:var(--text)}
+  .meta-dot{width:4px;height:4px;border-radius:50%;background:var(--border-strong)}
+  .support-nudge{
+    margin-top:20px;display:flex;align-items:center;justify-content:space-between;gap:16px;
+    max-width:800px;padding:13px 15px;border:1px solid rgb(247 149 73 / 42%);
+    border-radius:16px;background:rgb(255 255 255 / 68%)
+  }
+  .support-nudge p{margin:0;color:var(--muted);font-size:14px}
+  .support-nudge strong{color:var(--text)}
+  .support-nudge a{flex:0 0 auto;font-weight:750;text-underline-offset:3px}
+
+  main{padding:28px 0 56px}
+  .guidance{
+    display:flex;gap:12px;align-items:flex-start;padding:15px 16px;border:1px solid var(--border-subtle);
+    border-radius:16px;background:var(--surface-soft)
+  }
+  .guidance-icon{
+    flex:0 0 auto;width:30px;height:30px;display:grid;place-items:center;border-radius:10px;
+    background:var(--surface-warm);color:var(--accent-deep);font-weight:850
+  }
+  .guidance p{margin:0;max-width:920px;color:var(--muted);font-size:14px}
+
+  .search-zone{margin-top:22px}
+  .search-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:stretch}
+  .search-field{
+    min-height:54px;display:flex;align-items:center;gap:10px;padding:0 14px;border:1px solid var(--border-strong);
+    border-radius:15px;background:var(--surface)
+  }
+  .search-field:focus-within{border-color:var(--focus);box-shadow:0 0 0 3px rgb(118 81 203 / 13%)}
+  .search-icon{color:var(--soft);font-size:20px}
+  .search-field input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:var(--text);font-size:16px}
+  .search-field input::placeholder{color:var(--soft)}
+  .control-button,.sort-select{
+    min-height:54px;border:1px solid var(--border-strong);border-radius:15px;background:var(--surface);
+    color:var(--text);font-weight:650
+  }
+  .control-button{display:inline-flex;align-items:center;gap:8px;padding:0 15px}
+  .control-button:hover,.sort-select:hover{background:var(--surface-soft)}
+  .filter-count{
+    min-width:22px;height:22px;display:inline-grid;place-items:center;border-radius:999px;
+    background:var(--surface-warm);color:var(--accent-deep);font-size:12px;font-weight:800
+  }
+  .sort-wrap{position:relative}
+  .sort-wrap label{position:absolute;left:12px;top:6px;color:var(--soft);font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
+  .sort-select{height:54px;padding:18px 34px 5px 12px;min-width:178px}
+
+  .filter-panel{
+    display:none;margin-top:10px;padding:16px;border:1px solid var(--border);border-radius:18px;background:var(--surface)
+  }
+  .filter-panel.is-open{display:block}
+  .filter-panel__head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+  .filter-panel__head h2{margin:0;font-size:18px}
+  .quiet-button{border:0;background:transparent;color:var(--accent-deep);font-weight:750;text-decoration:underline;text-underline-offset:3px}
+  .filter-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+  .field{display:grid;gap:6px;color:var(--muted);font-size:12px;font-weight:750}
+  .field select{
+    width:100%;min-height:46px;padding:8px 10px;border:1px solid var(--border-strong);border-radius:12px;
+    background:var(--surface);color:var(--text)
+  }
+
+  .active-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+  .chip{
+    display:inline-flex;align-items:center;gap:7px;min-height:32px;padding:5px 9px;border:1px solid rgb(247 149 73 / 52%);
+    border-radius:10px;background:var(--surface-subtle);color:var(--accent-deep);font-size:12px;font-weight:750
+  }
+  .chip button{border:0;background:transparent;color:inherit;padding:0;font-size:15px;line-height:1}
+
+  .results-toolbar{
+    display:flex;align-items:end;justify-content:space-between;gap:16px;margin-top:28px;padding:0 4px 10px
+  }
+  .results-toolbar h2{margin:0;font-size:22px;line-height:1.2}
+  .results-toolbar p{margin:3px 0 0;color:var(--soft);font-size:13px}
+  .reset-all{min-height:40px}
+
+  .job-list{overflow:hidden;border:1px solid var(--border);border-radius:21px;background:var(--surface)}
+  .job-row{
+    display:grid;grid-template-columns:minmax(0,1.7fr) minmax(205px,.7fr) auto;
+    grid-template-areas:"main facts action";gap:24px;padding:20px 20px 19px;align-items:start
+  }
+  .job-row + .job-row{border-top:1px solid var(--border-subtle)}
+  .job-main{grid-area:main;min-width:0}
+  .job-title{margin:0;font-size:19px;line-height:1.2;letter-spacing:-.01em}
+  .job-org{margin:4px 0 0;color:var(--muted);font-size:14px}
+  .job-tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
+  .tag{
+    display:inline-flex;align-items:center;min-height:27px;padding:3px 8px;border-radius:9px;background:var(--surface-subtle);
+    color:var(--accent-deep);font-size:11px;font-weight:750
+  }
+  .job-summary{max-width:730px;margin:13px 0 0;color:var(--muted);font-size:14px;line-height:1.5}
+  .job-summary strong{color:var(--text);font-size:12px}
+  .job-facts{grid-area:facts;display:grid;gap:9px;min-width:0;padding-top:2px}
+  .fact{display:grid;gap:1px;min-width:0}
+  .fact-label{color:var(--soft);font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+  .fact-value{color:var(--text);font-size:13px;line-height:1.35;overflow-wrap:anywhere}
+  .urgency{display:inline-flex;width:max-content;max-width:100%;padding:3px 7px;border-radius:8px;background:#fff4df;color:var(--warning);font-weight:800}
+  .job-action{grid-area:action;display:grid;gap:8px;min-width:148px}
+  .apply-button{
+    min-height:48px;display:inline-flex;align-items:center;justify-content:center;padding:10px 15px;border:1px solid var(--accent);
+    border-radius:12px;background:var(--accent);color:var(--accent-ink);font-weight:750;text-decoration:none;text-align:center
+  }
+  .apply-button:hover{border-color:var(--accent-hover);background:var(--accent-hover)}
+  .apply-button.secondary{background:var(--surface);color:var(--accent-deep);border-color:var(--border-strong)}
+  .apply-button.secondary:hover{background:var(--surface-soft)}
+  .apply-note{color:var(--soft);font-size:10px;text-align:center;line-height:1.3}
+
+  .empty{
+    padding:36px 22px;text-align:center;border:1px solid var(--border);border-radius:21px;background:var(--surface)
+  }
+  .empty h3{margin:0;font-size:20px}
+  .empty p{margin:7px auto 0;max-width:520px;color:var(--muted)}
+
+  .site-footer{margin-top:52px;border-top:1px solid var(--border-subtle);background:var(--surface-soft)}
+  .footer-accent{height:5px;background:var(--accent)}
+  .footer-inner{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;padding:34px 0 26px}
+  .footer-title{margin:0;font-size:20px}
+  .footer-copy,.footer-links{margin-top:10px;color:var(--muted);font-size:13px}
+  .footer-links{display:grid;gap:7px}
+  .footer-links a{width:max-content}
+  .footer-legal{grid-column:1/-1;padding-top:18px;border-top:1px solid var(--border);color:var(--soft);font-size:12px}
+  .footer-legal p{margin:0 0 7px;max-width:920px}
+
+  @container (max-width: 760px){
+    .page-width{width:min(100% - 32px,1180px)}
+    .site-header__inner{min-height:72px;gap:10px}
+    .brand img{width:44px;height:44px;border-radius:12px}
+    .brand-copy strong{font-size:16px}
+    .brand-copy span{display:none}
+    .site-nav{gap:2px}
+    .site-nav a{padding:7px 8px;font-size:13px}
+    .hero{padding:31px 0 27px}
+    h1{font-size:clamp(2.15rem,11cqw,2.8rem)}
+    .lede{font-size:16px;margin-top:11px}
+    .hero-meta{display:grid;gap:4px;margin-top:17px}
+    .meta-dot{display:none}
+    .support-nudge{display:grid;gap:8px;margin-top:16px;padding:12px 13px}
+    .support-nudge a{width:max-content}
+    main{padding:20px 0 42px}
+    .guidance{padding:13px}
+    .guidance-icon{width:28px;height:28px}
+    .search-row{grid-template-columns:minmax(0,1fr) auto}
+    .sort-wrap{grid-column:1/-1}
+    .sort-select{width:100%}
+    .control-button{padding-inline:13px}
+    .filter-grid{grid-template-columns:1fr 1fr}
+    .results-toolbar{align-items:start;margin-top:22px}
+    .results-toolbar h2{font-size:20px}
+    .job-list{border:0;background:transparent;overflow:visible}
+    .job-row,.job-row + .job-row{
+      grid-template-columns:1fr;grid-template-areas:"main" "facts" "action";gap:16px;
+      margin-top:12px;padding:18px 16px;border:1px solid var(--border);border-radius:18px;background:var(--surface)
+    }
+    .job-row:first-child{margin-top:0}
+    .job-title{font-size:19px}
+    .job-summary{font-size:14px}
+    .job-facts{grid-template-columns:1fr 1fr;gap:10px 14px;padding-top:0}
+    .job-action{min-width:0}
+    .apply-note{text-align:left}
+    .footer-inner{grid-template-columns:1fr;gap:24px;padding-top:28px}
+    .footer-legal{grid-column:auto}
+  }
+  @container (max-width: 470px){
+    .page-width{width:min(100% - 24px,1180px)}
+    .site-header__inner{align-items:flex-start;padding-block:10px}
+    .brand{gap:9px}
+    .brand-copy strong{font-size:15px;max-width:170px}
+    .site-nav a{font-size:12px}
+    .hero{padding-top:25px}
+    h1{font-size:2.15rem}
+    .filter-grid{grid-template-columns:1fr}
+    .job-facts{grid-template-columns:1fr}
+    .results-toolbar{display:grid;gap:5px}
+    .reset-all{justify-self:start}
+  }
+</style>
+</head>
+<body>
+<div class="fixture-toolbar" id="fixtureToolbar">
+  <div><strong>ANT-262 visual / UX fixture</strong> <span class="fixture-note">— controls below are not part of the production site</span></div>
+  <div class="fixture-toolbar__controls">
+    <button class="is-active" data-width="100%">Full width</button>
+    <button data-width="1180px">Desktop 1180</button>
+    <button data-width="390px">Mobile 390</button>
+  </div>
+</div>
+
+<div class="preview-wrap">
+<div class="preview-frame" id="previewFrame">
+<div class="site">
+  <header class="site-header">
+    <div class="site-header__inner page-width">
+      <a class="brand" href="#" aria-label="Nottinghamshire Jobs by Transform Training">
+        <img src="https://anthonytransform-ai.github.io/nottinghamshire-jobs/icons/apple-touch-icon.png" alt="">
+        <span class="brand-copy">
+          <strong>Nottinghamshire Jobs</strong>
+          <span>by Transform Training</span>
+        </span>
+      </a>
+      <nav class="site-nav" aria-label="Main navigation">
+        <a href="#" aria-current="page">Jobs</a>
+        <a href="#support-placeholder">Get support</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero-band">
+    <div class="hero page-width">
+      <p class="eyebrow">Current local opportunities</p>
+      <h1>Find a job in Nottinghamshire</h1>
+      <p class="lede">Search recently checked vacancies from local councils, NHS organisations, universities, schools, charities and community organisations.</p>
+      <div class="hero-meta">
+        <span><strong>257</strong> current vacancies</span>
+        <span class="meta-dot" aria-hidden="true"></span>
+        <span>Last checked <strong>12 Oct 2026</strong></span>
+      </div>
+      <div class="support-nudge" id="support-placeholder">
+        <p><strong>Need a bit more help with your job search?</strong> Transform Training can support people who want help taking their next step.</p>
+        <a href="#support-placeholder">See support</a>
+      </div>
+    </div>
+  </section>
+
+  <main class="page-width">
+    <aside class="guidance">
+      <div class="guidance-icon" aria-hidden="true">i</div>
+      <p>This list is checked regularly by Transform Training. Short summaries help you understand the role, but always read the employer’s official advert before applying because vacancies can close early or change.</p>
+    </aside>
+
+    <section class="search-zone" aria-label="Search and filter jobs">
+      <div class="search-row">
+        <label class="search-field">
+          <span class="search-icon" aria-hidden="true">⌕</span>
+          <span style="position:absolute;clip:rect(0 0 0 0);clip-path:inset(50%);width:1px;height:1px;overflow:hidden">Search job title or keyword</span>
+          <input id="searchInput" type="search" placeholder="Search job title, organisation or keyword">
+        </label>
+        <button class="control-button" id="filterButton" type="button" aria-expanded="false">
+          Filters <span class="filter-count" id="filterCount">0</span>
+        </button>
+        <div class="sort-wrap">
+          <label for="sortSelect">Sort</label>
+          <select class="sort-select" id="sortSelect">
+            <option value="closing-soonest">Closing soonest</option>
+            <option value="organisation-az">Organisation A–Z</option>
+            <option value="title-az">Job title A–Z</option>
+            <option value="closing-latest">Closing latest</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="filter-panel" id="filterPanel">
+        <div class="filter-panel__head">
+          <h2>Narrow the list</h2>
+          <button class="quiet-button" type="button" id="clearFilters">Clear filters</button>
+        </div>
+        <div class="filter-grid">
+          <label class="field">Job area
+            <select id="areaFilter">
+              <option value="">All job areas</option>
+              <option>Administration & Business Support</option>
+              <option>Children & Young People</option>
+              <option>Education & Training</option>
+              <option>IT & Digital</option>
+              <option>Property, Facilities & Operations</option>
+            </select>
+          </label>
+          <label class="field">Location
+            <select id="locationFilter">
+              <option value="">All locations</option>
+              <option>Nottingham</option>
+              <option>Gedling</option>
+              <option>Ashfield</option>
+            </select>
+          </label>
+          <label class="field">Work pattern
+            <select id="patternFilter">
+              <option value="">Any work pattern</option>
+              <option>Full-time</option>
+              <option>Part-time</option>
+              <option>Full-time or Part-time</option>
+            </select>
+          </label>
+          <label class="field">Organisation
+            <select id="orgFilter">
+              <option value="">All organisations</option>
+              <option>Alderman White School</option>
+              <option>Arno Vale Junior School</option>
+              <option>Arnold Hill Spencer Academy</option>
+              <option>Ashfield District Council</option>
+              <option>Blessed Robert Widmerpool Catholic Primary and Nursery School</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div class="active-chips" id="activeChips" aria-live="polite"></div>
+    </section>
+
+    <div class="results-toolbar">
+      <div>
+        <h2 id="resultsHeading">5 jobs found</h2>
+        <p>Showing a small fixture sample of the live Nottinghamshire Jobs data.</p>
+      </div>
+      <button class="quiet-button reset-all" id="resetAll" type="button" hidden>Reset search &amp; filters</button>
+    </div>
+
+    <section id="jobList" class="job-list" aria-live="polite"></section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-accent"></div>
+    <div class="footer-inner page-width">
+      <div>
+        <h2 class="footer-title">Transform Training</h2>
+        <div class="footer-copy">Practical support to help people build confidence, develop skills and move forward.</div>
+      </div>
+      <nav class="footer-links" aria-label="Transform Training information">
+        <a href="https://www.transformtraining.org.uk/" target="_blank" rel="noopener noreferrer">Official website</a>
+        <a href="#support-placeholder">Get job-search support</a>
+        <a href="https://www.transformtraining.org.uk/website-terms-and-conditions" target="_blank" rel="noopener noreferrer">Terms &amp; Privacy</a>
+      </nav>
+      <div class="footer-legal">
+        <p>This job list is updated regularly by Transform Training. Vacancies can close early or be withdrawn, so always check the employer’s official advert before applying.</p>
+        <p>Transform Training Ltd · Registered charity in England and Wales no. 1158831.</p>
+      </div>
+    </div>
+  </footer>
+</div>
+</div>
+</div>
+
+<script>
+const jobs = [
+  {
+    title:"Out of School Club Playworker", org:"Arno Vale Junior School", area:"Children & Young People",
+    location:"Nottingham", pattern:"Part-time", contract:"Permanent", salary:"£11,236.66 actual salary",
+    closing:"2026-10-13T12:00", closingLabel:"13 Oct 2026, 12:00", urgency:"Closes today",
+    summary:"Provide a safe, caring and stimulating environment for children attending the school’s wrap-around care before and after the school day.",
+    shared:false
+  },
+  {
+    title:"Teaching Assistant", org:"Blessed Robert Widmerpool Catholic Primary and Nursery School", area:"Education & Training",
+    location:"Nottingham", pattern:"Part-time", contract:"Fixed-term", salary:"£25,989 – £27,254 FTE",
+    closing:"2026-10-14T23:59", closingLabel:"14 Oct 2026, 23:59", urgency:"Closes tomorrow",
+    summary:"Support teachers with learning, intervention strategies and student wellbeing, helping pupils make progress and take part confidently.",
+    shared:false
+  },
+  {
+    title:"Technology Support Technician", org:"Arnold Hill Spencer Academy", area:"IT & Digital",
+    location:"Gedling", pattern:"Full-time", contract:"Permanent", salary:"£29,541 – £31,525",
+    closing:"2026-10-19T12:00", closingLabel:"19 Oct 2026, 12:00", urgency:"Closes in 6 days",
+    summary:"Support the Trust’s in-house IT service and help provide a reliable technology experience across its educational settings.",
+    shared:false
+  },
+  {
+    title:"Attendance and Inclusion Administration Officer", org:"Alderman White School", area:"Administration & Business Support",
+    location:"Nottingham", pattern:"Full-time", contract:"Permanent", salary:"£22,630.72 – £23,356.04 actual salary",
+    closing:"2026-11-02T09:00", closingLabel:"2 Nov 2026, 09:00", urgency:"",
+    summary:"Provide administrative support to the school’s welfare and attendance work, maintaining accurate records, confidential documents and meeting paperwork.",
+    shared:false
+  },
+  {
+    title:"Digital Workplace Officer", org:"Ashfield District Council", area:"IT & Digital",
+    location:"Ashfield", pattern:"Full-time", contract:"Other", salary:"£29,542 – £32,046",
+    closing:"", closingLabel:"Closing date not stated", urgency:"",
+    summary:"",
+    shared:true
+  }
+];
+
+const state = { search:"", area:"", location:"", pattern:"", org:"", sort:"closing-soonest" };
+
+function esc(v){return String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));}
+function filtered(){
+  const q=state.search.trim().toLowerCase();
+  let out=jobs.filter(j=>{
+    const qok=!q || [j.title,j.org,j.area,j.location,j.summary].join(" ").toLowerCase().includes(q);
+    return qok && (!state.area||j.area===state.area) && (!state.location||j.location===state.location)
+      && (!state.pattern||j.pattern===state.pattern) && (!state.org||j.org===state.org);
+  });
+  out=[...out].sort((a,b)=>{
+    if(state.sort==="organisation-az") return a.org.localeCompare(b.org) || a.title.localeCompare(b.title);
+    if(state.sort==="title-az") return a.title.localeCompare(b.title) || a.org.localeCompare(b.org);
+    const ad=a.closing||"9999-12-31T23:59", bd=b.closing||"9999-12-31T23:59";
+    const c=ad.localeCompare(bd);
+    return state.sort==="closing-latest" ? -c || a.title.localeCompare(b.title) : c || a.title.localeCompare(b.title);
+  });
+  return out;
+}
+function render(){
+  const rows=filtered();
+  const list=document.getElementById("jobList");
+  document.getElementById("resultsHeading").textContent=`${rows.length} ${rows.length===1?"job":"jobs"} found`;
+  const active=[state.search,state.area,state.location,state.pattern,state.org].filter(Boolean).length;
+  document.getElementById("filterCount").textContent=[state.area,state.location,state.pattern,state.org].filter(Boolean).length;
+  document.getElementById("resetAll").hidden=active===0;
+  const chips=[];
+  [["area","Job area"],["location","Location"],["pattern","Work pattern"],["org","Organisation"]].forEach(([key,label])=>{
+    if(state[key]) chips.push(`<span class="chip">${esc(label)}: ${esc(state[key])}<button type="button" data-clear="${key}" aria-label="Remove ${esc(label)} filter">×</button></span>`);
+  });
+  document.getElementById("activeChips").innerHTML=chips.join("");
+  document.querySelectorAll("[data-clear]").forEach(btn=>btn.onclick=()=>{
+    const key=btn.dataset.clear; state[key]="";
+    const map={area:"areaFilter",location:"locationFilter",pattern:"patternFilter",org:"orgFilter"};
+    document.getElementById(map[key]).value=""; render();
+  });
+  if(!rows.length){
+    list.innerHTML=`<div class="empty"><h3>No jobs match these choices</h3><p>Try a broader keyword or clear one of the filters.</p></div>`;
+    return;
+  }
+  list.innerHTML=rows.map(j=>`
+    <article class="job-row">
+      <div class="job-main">
+        <h3 class="job-title">${esc(j.title)}</h3>
+        <p class="job-org">${esc(j.org)}</p>
+        <div class="job-tags"><span class="tag">${esc(j.area)}</span><span class="tag">${esc(j.pattern)}</span></div>
+        ${j.summary?`<p class="job-summary"><strong>WHAT YOU'D DO</strong><br>${esc(j.summary)}</p>`:""}
+      </div>
+      <div class="job-facts">
+        <div class="fact"><span class="fact-label">Location</span><span class="fact-value">${esc(j.location)}</span></div>
+        <div class="fact"><span class="fact-label">Salary</span><span class="fact-value">${esc(j.salary)}</span></div>
+        <div class="fact"><span class="fact-label">Closing</span><span class="fact-value">${j.urgency?`<span class="urgency">${esc(j.urgency)}</span><br>`:""}${esc(j.closingLabel)}</span></div>
+      </div>
+      <div class="job-action">
+        <a class="apply-button ${j.shared?"secondary":""}" href="#" onclick="return false">${j.shared?"Open vacancies page":"View & Apply"}</a>
+        ${j.shared?`<span class="apply-note">This employer uses a shared vacancies page.</span>`:""}
+      </div>
+    </article>`).join("");
+}
+document.getElementById("filterButton").onclick=()=>{
+  const p=document.getElementById("filterPanel"); p.classList.toggle("is-open");
+  document.getElementById("filterButton").setAttribute("aria-expanded",p.classList.contains("is-open"));
+};
+document.getElementById("searchInput").oninput=e=>{state.search=e.target.value;render()};
+document.getElementById("sortSelect").onchange=e=>{state.sort=e.target.value;render()};
+for(const [id,key] of [["areaFilter","area"],["locationFilter","location"],["patternFilter","pattern"],["orgFilter","org"]]){
+  document.getElementById(id).onchange=e=>{state[key]=e.target.value;render()};
+}
+function reset(){
+  state.search=state.area=state.location=state.pattern=state.org=""; state.sort="closing-soonest";
+  document.getElementById("searchInput").value="";
+  ["areaFilter","locationFilter","patternFilter","orgFilter"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("sortSelect").value="closing-soonest"; render();
+}
+document.getElementById("clearFilters").onclick=()=>{state.area=state.location=state.pattern=state.org="";
+  ["areaFilter","locationFilter","patternFilter","orgFilter"].forEach(id=>document.getElementById(id).value="");render()};
+document.getElementById("resetAll").onclick=reset;
+
+document.querySelectorAll("[data-width]").forEach(btn=>btn.onclick=()=>{
+  document.querySelectorAll("[data-width]").forEach(b=>b.classList.remove("is-active"));
+  btn.classList.add("is-active");
+  document.getElementById("previewFrame").style.width=btn.dataset.width;
+});
+render();
+</script>
+</body>
+</html>
