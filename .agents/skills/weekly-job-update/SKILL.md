@@ -56,12 +56,13 @@ uncertain value into a final Nottinghamshire Jobs classification. Collectors
 may persist raw candidates, draft candidates and final candidate state through
 the shared local state helper; no database or service is required.
 
-## Executable collector pilot
+## Executable collection and representative weekly path
 
-Before using a pilot adapter, read the bounded mechanical access recipes in
-`scripts/collector-access-recipes.md`. The recipes reference registry IDs;
-`references/source-registry.json` remains the sole route/fallback owner. Changed
-markup or access needs targeted diagnosis, not repeated portal rediscovery.
+Before using a deterministic adapter, read the bounded mechanical access recipe
+for its registry source or family in `scripts/collector-access-recipes.md`. The
+recipes reference registry IDs; `references/source-registry.json` remains the
+sole route/fallback owner. Changed markup or access needs targeted diagnosis,
+not repeated portal rediscovery.
 
 Collection tooling is separate from the public static site. Install the pinned
 Python development dependency from `scripts/requirements-collection.txt` only
@@ -75,11 +76,34 @@ Run one registered source at a time into a named ignored working directory:
 py -X utf8 -m scripts.collect_weekly_jobs --source university-of-nottingham --run RUN_NAME
 py -X utf8 -m scripts.collect_weekly_jobs --source nottingham-trent-university --run RUN_NAME --browser-channel msedge
 py -X utf8 -m scripts.collect_weekly_jobs --source nottingham-university-hospitals --run RUN_NAME --browser-channel msedge --headed
+py -X utf8 -m scripts.collect_weekly_jobs --source govuk-teaching-vacancies --run RUN_NAME
+py -X utf8 -m scripts.collect_weekly_jobs --source nottingham-city-council --run RUN_NAME --browser-channel msedge
+py -X utf8 -m scripts.collect_weekly_jobs --source SOURCE_ID --run RUN_NAME --browser-channel msedge
 ```
 
-Use the registry order at orchestration/judgement level. These command examples
-show adapter invocation, not permission to collect several unfinished sources.
-The normal weekly boundary still requires finishing one source before the next.
+The final generic command is used once for each exact registry record whose
+method is `itrent`; it loads that record's WVID from the canonical JSON and
+must not be replaced with another employer's ID. The same one-command-per-ID
+rule applies to every supported source; never merge employers merely because
+they share a recruitment host.
+
+The deterministic collector currently covers the established University,
+Jobtrain and HealthJobsUK family methods plus `govuk-teaching-vacancies`, the
+`oracle-cloud` Nottingham City source and every registered `itrent` source.
+These are adapter families, not a second source registry. Iterate the JSON
+registry in listed order at orchestration/judgement level and use the source ID
+from the current record for each invocation. The normal weekly boundary still
+requires finishing one source before the next.
+
+Any registry method not covered by those deterministic adapters remains
+agent-assisted. Use the current Playbook and that record's registered route and
+simple fallback for those sources, including `tal`, `council-direct`,
+`healthjobsuk-trac` records without a deterministic completion proof,
+`college-direct` and `vcse-direct` records. A human-verification response is a
+source limitation, never an EMPTY result; record PARTIAL/ERROR and continue
+under Playbook rules. In particular, the current Nottinghamshire TAL Altcha
+behaviour remains agent-assisted and must not trigger a CAPTCHA, proxy or
+stealth workaround.
 
 The collector emits the shared source-run record and raw candidates. Consume
 `source-runs.json`, `raw-candidates.jsonl`, per-source checkpoints and captured
@@ -102,10 +126,12 @@ and an explicit destination/summary exception assessment. The local helper in
 `scripts/prepare_weekly_shadow.py` checks that no raw identity remains unfinished;
 it does not make eligibility/classification/deduplication decisions for the agent.
 
-### ANT-259 controlled integration shadow
+### Historical ANT-259 controlled integration shadow (reference only)
 
-Anthony's explicit pilot boundary permits retaining today's trusted non-pilot
-rows and replacing only the three freshly collected and judged pilot portions.
+Anthony's explicit ANT-259 pilot boundary permits retaining today's trusted
+non-pilot rows and replacing only the three freshly collected and judged pilot
+portions. This helper is historical comparison evidence, not the normal
+ANT-260 full-run path and does not constitute a fresh 19-source sweep.
 Identify those portions by source/employer evidence, finish each pilot source's
 `SOURCE_ID-decisions.json`, and use:
 
@@ -124,6 +150,43 @@ comparisons, controlled failure/resume evidence and remaining limitations.
 The shadow CSV and live evidence remain ignored. Public `jobs.csv` is unchanged.
 The current trusted production workflow remains active pending Anthony's later
 adoption decision; a validated shadow candidate does not grant adoption or merge.
+
+### ANT-260 representative full-run proof
+
+After the deterministic adapters are integrated, a representative acceptance
+run uses a fresh ignored run directory and one common Europe/London
+`date_checked`. Iterate all 19 current registry records in order. For each
+source, complete one Source Work Unit before moving on:
+
+1. invoke the deterministic adapter when the registry method is covered above;
+2. otherwise use the current Playbook/registered agent-assisted method;
+3. record the actual source status (`OK`, `EMPTY`, `PARTIAL` or `ERROR`),
+   candidate count, judged include/exclude counts and material limitation;
+4. finish every retained candidate into the one shared 16-column judgement
+   path, including the participant-facing `apply_url` and grounded summary
+   audit; and
+5. close the source before opening the next one.
+
+For the six iTrent records, run each exact source ID separately and retain the
+actual WVID, rendered count, candidate/detail count and any limitation in the
+run manifest. Ashfield's family proof does not substitute for the other five
+configured weekly sources.
+
+The full-run candidate and evidence are local and ignored. The candidate must
+be serialized as exactly the Playbook's 16 columns, reviewed with the
+participant-facing exception audit, and validated by the repository validator
+against those exact bytes. Record the candidate row count and SHA-256, source
+outcomes, job-specific versus shared destinations, summary exceptions,
+cross-source deduplication, meaningful retries/manual navigation/intervention,
+resumability evidence, and the comparison with the current trusted workflow.
+Do not replace root `jobs.csv`, open a routine publication PR, or describe the
+full-run candidate as production adoption.
+
+If a deterministic source returns blocked, incomplete or detail-failure
+evidence, preserve its useful candidates and limitation as PARTIAL/ERROR; do
+not turn the failure into EMPTY or silently fall back to a different source.
+If an agent-assisted source cannot be completed through the current registered
+route/fallback, record that fact and continue the remaining fixed sources.
 
 ## Ownership and boundaries
 

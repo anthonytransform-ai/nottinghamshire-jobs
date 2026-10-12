@@ -119,6 +119,11 @@ def check_document(html):
     return root
 
 
+def rendered_access_blocked(text):
+    """Recognise a rendered portal security page before waiting for detail markup."""
+    return bool(re.search(r"possible security violation|E0227SECURITY", text, re.I))
+
+
 def labelled(node):
     facts = {}
     for item in ([node] if node.tag == "p" else []) + node.nodes("p"):
@@ -308,7 +313,7 @@ def parse_list(source, html, page_url):
             ))
     elif source.method == "itrent":
         cards = root.nodes(cls="Mhr-jobDetail--listItem")
-        advertised_count = _result_count(root.text(), r"(\d+)\s+jobs?\s+match", r"(\d+)\s+open jobs")
+        advertised_count = _result_count(root.text(), r"(\d+)\s+jobs?\s+match", r"(\d+)\s+open jobs", r"Results\s*-\s*(\d+)\s+match(?:es)?\s+found")
         if advertised_count is None:
             raise CollectionError("iTrent rendered result count marker missing")
         if not cards:
@@ -427,8 +432,11 @@ def parse_detail(source, row, html):
         posted_url = post.get("url", "")
         if posted_url and urlparse(posted_url).path != urlparse(row["url"]).path:
             raise CollectionError("GOV.UK detail slug disagrees with observed advert link")
-        content = root.nodes(cls="editor-rendered-content")
-        body = content[0].text() if content else Document(str(post.get("description", ""))).root.text()
+        content = [node.text() for node in root.nodes(cls="editor-rendered-content") if node.text()]
+        json_body = Document(str(post.get("description", ""))).root.text()
+        supplementary = [node.text() for node in root.nodes(cls="govuk_body") if node.text()]
+        job_details = [node.text() for node in root.nodes() if node.attrs.get("id") == "job-details" and node.text()]
+        body = next((value for value in (*content, json_body, *supplementary, *job_details) if value), "")
         facts.update(labelled(root))
         organization = post.get("hiringOrganization", {}).get("name", "")
         location = _first_text(root, tag="span", cls="govuk-caption-l") or row.get("location", "")
@@ -580,6 +588,9 @@ class Transport:
                     if response is None or response.status >= 400:
                         raise CollectionError(f"HTTP {response.status if response else 'no response'}: {url}")
                     if self.source.method == "itrent":
+                        body_text = page.locator("body").inner_text(timeout=self.timeout)
+                        if rendered_access_blocked(body_text):
+                            raise CollectionError(f"Access/security check blocked rendered iTrent detail: {url}")
                         page.wait_for_function("() => document.querySelector('.Mhr-jobProfile')", timeout=self.timeout)
                     elif self.source.method == "oracle-cloud":
                         page.wait_for_function("() => document.querySelector('h1.job-details__title')", timeout=self.timeout)
@@ -672,12 +683,12 @@ def enumerate_source(source, transport, checkpoint, save_checkpoint):
         if not find_jobs.is_visible():
             raise CollectionError("iTrent Find jobs control is not visible")
         find_jobs.click(timeout=transport.timeout)
-        page.wait_for_function("() => /\\d+\\s+jobs?\\s+match/i.test(document.body.innerText) || /\\d+\\s+open jobs/i.test(document.body.innerText)", timeout=transport.timeout)
+        page.wait_for_function("() => /\\d+\\s+jobs?\\s+match/i.test(document.body.innerText) || /\\d+\\s+open jobs/i.test(document.body.innerText) || /Results\\s*-\\s*\\d+\\s+match(?:es)?\\s+found/i.test(document.body.innerText)", timeout=transport.timeout)
         for step in range(100):
             html = page.content()
             meta = transport.save(html, page.url, f"itrent-list:{step}")
             capture(html, page.url, meta)
-            total = _result_count(Document(html).root.text(), r"(\d+)\s+jobs?\s+match", r"(\d+)\s+open jobs")
+            total = _result_count(Document(html).root.text(), r"(\d+)\s+jobs?\s+match", r"(\d+)\s+open jobs", r"Results\s*-\s*(\d+)\s+match(?:es)?\s+found")
             if total is None:
                 raise CollectionError("iTrent rendered result count disappeared")
             checkpoint["advertised_count"] = total

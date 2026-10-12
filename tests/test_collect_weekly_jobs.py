@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import patch
 
 from scripts.collect_weekly_jobs import (
-    CollectionError, PILOTS, Transport, collect, parse_detail, parse_list, next_page,
+    CollectionError, PILOTS, Transport, collect, next_page, parse_detail, parse_list, rendered_access_blocked,
 )
 from scripts.weekly_job_update import RawCandidateStatus, SourceRun, SourceRunStatus, WorkingStateStore, load_registry
 
@@ -147,9 +147,22 @@ class CollectorParserTests(unittest.TestCase):
         self.assertEqual("Permanent", facts["raw_contract"])
         self.assertEqual("https://example.org/apply/teacher-tuxford", facts["raw_apply_url"])
 
+    def test_govuk_detail_uses_supplementary_body_when_editor_content_is_empty(self):
+        source = load_registry().get("govuk-teaching-vacancies")
+        row = {"url": "https://teaching-vacancies.service.gov.uk/jobs/teacher-tuxford"}
+        detail = '''<h1>Teacher</h1><div class="editor-rendered-content"><p><br></p></div>
+        <div class="govuk_body"><p>Teach pupils and support the school community.</p></div>
+        <script type="application/ld+json">''' + json.dumps({"@type": "JobPosting", "url": row["url"]}) + '''</script>'''
+        facts = parse_detail(source, row, detail)
+        self.assertIn("Teach pupils", facts["detail_body"])
+
+    def test_rendered_itrent_security_marker_is_classified_as_access_block(self):
+        self.assertTrue(rendered_access_blocked("A possible security violation has been detected on displaying this page. [E0227SECURITY]"))
+        self.assertFalse(rendered_access_blocked("Job profile for Housing Officer"))
+
     def test_itrent_preserves_registered_wvid_and_vacancy_id(self):
         source = load_registry().get("ashfield-district-council")
-        listing = '''<p>12 jobs match your criteria</p><div class="Mhr-card Mhr-jobDetail Mhr-jobDetail--listItem"
+        listing = '''<p>Results - 1 match found</p><div class="Mhr-card Mhr-jobDetail Mhr-jobDetail--listItem"
         vac-id="0947126vEt" bu-send="/ce0930li_webrecruitment/wrd/run/ETREC148GF.open?WVID=6777852QI7&amp;VACANCY_ID=0947126vEt">
         <a class="Mhr-jobDetailTitleLink" href="#">Housing Officer</a><div><span class="Mhr-jobDetailEntry--label">Salary</span><span class="Mhr-jobDetailEntry--text">£35,000</span></div>
         <div><span class="Mhr-jobDetailEntry--label">Location</span><span class="Mhr-jobDetailEntry--text">Kirkby-in-Ashfield</span></div></div>'''
