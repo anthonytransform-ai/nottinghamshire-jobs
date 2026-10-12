@@ -306,6 +306,11 @@ A source-access limitation is not itself a row-level exclusion reason.
 
 Neither is the absence of a fixed closing date. Do not reject an otherwise useful live vacancy because the employer uses rolling recruitment, open-until-filled wording, or simply does not publish a deadline.
 
+Genuine current paid apprenticeship vacancies are fully in scope and welcome.
+Apply the same employer-scope, Nottinghamshire geography, current/open-status
+and vacancy-quality rules as for other jobs. Do not exclude or downgrade an
+otherwise eligible vacancy merely because it is an apprenticeship.
+
 ---
 
 ## 7. Employer and host/service rules
@@ -431,6 +436,12 @@ Use exactly one of:
 - `Other`
 
 Map from the advert's actual contractual wording. Do not infer permanence when the source does not state it.
+
+Use `Apprenticeship` only when the current advert/source evidence supports it.
+If a row is labelled `Apprenticeship` but verified contract evidence clearly
+supports another type, correct its classification rather than excluding the
+vacancy. Do not infer apprenticeship from title wording alone when the contract
+evidence contradicts it.
 
 ### 9.5 `work_pattern`
 
