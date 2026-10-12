@@ -5,9 +5,22 @@ description: Run the Workflow-First Nottinghamshire Jobs weekly update. Use for 
 
 # Weekly Job Update
 
-This skill is the repo-local control surface for the Nottinghamshire Jobs weekly
-workflow. It is discoverable for the established weekly trigger and for direct
-requests to update the Nottinghamshire Jobs list or generate its weekly CSV.
+This Skill is the normal production operating source for the Nottinghamshire
+Jobs Weekly Job Update. It is discoverable for the established weekly trigger
+and for direct requests to update the Nottinghamshire Jobs list or generate its
+weekly CSV.
+
+## Operational authority
+
+For normal weekly execution, use this Skill, its version-controlled Playbook,
+canonical source registry, source-access recipes and repository tooling as the
+single operational workflow source.
+
+The former ChatGPT Project instruction/Playbook is legacy reference material
+only after the 2026-10-12 WJU v2 adoption. Do not treat it as a competing
+current authority or silently reconcile differences back into this workflow.
+Anthony's current explicit instruction still overrides the normal workflow, and
+current source/task evidence governs implementation truth.
 
 ## Read the detail only when needed
 
@@ -168,8 +181,8 @@ from this controlled comparison. Record exact row count/checksum, source
 comparisons, controlled failure/resume evidence and remaining limitations.
 
 The shadow CSV and live evidence remain ignored. Public `jobs.csv` is unchanged.
-The current trusted production workflow remains active pending Anthony's later
-adoption decision; a validated shadow candidate does not grant adoption or merge.
+This shadow path remains historical comparison evidence only and is not the
+normal production Weekly Job Update path.
 
 ### ANT-260 representative full-run proof
 
@@ -199,8 +212,9 @@ against those exact bytes. Record the candidate row count and SHA-256, source
 outcomes, job-specific versus shared destinations, summary exceptions,
 cross-source deduplication, meaningful retries/manual navigation/intervention,
 resumability evidence, and the comparison with the current trusted workflow.
-Do not replace root `jobs.csv`, open a routine publication PR, or describe the
-full-run candidate as production adoption.
+Do not replace root `jobs.csv` or open a routine publication PR merely because
+an acceptance/full-run proof exists. Normal production weekly execution follows
+the Playbook's publication path and still requires Anthony's merge authority.
 
 If a deterministic source returns blocked, incomplete or detail-failure
 evidence, preserve its useful candidates and limitation as PARTIAL/ERROR; do
@@ -223,6 +237,6 @@ route/fallback, record that fact and continue the remaining fixed sources.
   retains merge/publication authority.
 
 Temporary vacancy evidence and resumable run state stay local and untracked.
-Do not switch the production weekly workflow, change `jobs.csv`, merge, deploy,
-or broaden source discovery as part of using this Skill unless a separate
-current instruction authorises that action.
+This Skill is the adopted production weekly workflow. Do not change `jobs.csv`,
+merge, deploy, broaden source discovery or alter the operating method unless the
+current Playbook and Anthony's current authority permit that action.
