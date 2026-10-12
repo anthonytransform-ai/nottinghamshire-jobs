@@ -56,6 +56,75 @@ uncertain value into a final Nottinghamshire Jobs classification. Collectors
 may persist raw candidates, draft candidates and final candidate state through
 the shared local state helper; no database or service is required.
 
+## Executable collector pilot
+
+Before using a pilot adapter, read the bounded mechanical access recipes in
+`scripts/collector-access-recipes.md`. The recipes reference registry IDs;
+`references/source-registry.json` remains the sole route/fallback owner. Changed
+markup or access needs targeted diagnosis, not repeated portal rediscovery.
+
+Collection tooling is separate from the public static site. Install the pinned
+Python development dependency from `scripts/requirements-collection.txt` only
+when it is missing. Use an installed ordinary browser channel where available
+(e.g. `msedge` on Windows), or provision Playwright Chromium through its normal
+installer. There is no crawler framework, database or service.
+
+Run one registered source at a time into a named ignored working directory:
+
+```text
+py -X utf8 -m scripts.collect_weekly_jobs --source university-of-nottingham --run RUN_NAME
+py -X utf8 -m scripts.collect_weekly_jobs --source nottingham-trent-university --run RUN_NAME --browser-channel msedge
+py -X utf8 -m scripts.collect_weekly_jobs --source nottingham-university-hospitals --run RUN_NAME --browser-channel msedge --headed
+```
+
+Use the registry order at orchestration/judgement level. These command examples
+show adapter invocation, not permission to collect several unfinished sources.
+The normal weekly boundary still requires finishing one source before the next.
+
+The collector emits the shared source-run record and raw candidates. Consume
+`source-runs.json`, `raw-candidates.jsonl`, per-source checkpoints and captured
+HTML evidence from `.weekly-job-update/RUN_NAME/`; do not recrawl completed list
+pages to recreate facts already captured. Complete raw evidence stays raw:
+apply current Playbook eligibility, work-base/host, classification, deduplication
+and summary judgement. `OK` describes collection, not eligibility or publication.
+
+Exit code 2 means PARTIAL/ERROR; read its method, counts and recorded failures.
+Do not convert it to EMPTY. Verified rows may proceed with an explicit source
+limitation. Same-run invocation skips an already completed source; a partial run
+reuses completed details and completed enumeration checkpoints. Fresh weekly
+work needs a fresh run name. `--stop-after N` is a controlled detail interruption
+for failure/resume proof, not a weekly coverage limit. A hard-killed process may
+leave RUNNING and a lock; check its recorded PID before removing a stale lock.
+
+For row finishing, persist explicit decisions per captured identity with an
+include/exclude outcome and reason. Included rows retain all 16 CSV string fields
+and an explicit destination/summary exception assessment. The local helper in
+`scripts/prepare_weekly_shadow.py` checks that no raw identity remains unfinished;
+it does not make eligibility/classification/deduplication decisions for the agent.
+
+### ANT-259 controlled integration shadow
+
+Anthony's explicit pilot boundary permits retaining today's trusted non-pilot
+rows and replacing only the three freshly collected and judged pilot portions.
+Identify those portions by source/employer evidence, finish each pilot source's
+`SOURCE_ID-decisions.json`, and use:
+
+```text
+py -X utf8 -m scripts.prepare_weekly_shadow --run RUN_NAME --checked-date YYYY-MM-DD
+py -X utf8 -m scripts.validate_job_update .weekly-job-update/RUN_NAME/shadow-jobs.csv
+```
+
+Read the manifest, review/deduplicate the final rows and perform the participant
+exception audit. The helper holds the trusted non-pilot fields constant and
+reports inherited exceptions separately. Do not claim a fresh 19-source sweep,
+newly verified non-pilot limitation reasons, or a production-ready public update
+from this controlled comparison. Record exact row count/checksum, source
+comparisons, controlled failure/resume evidence and remaining limitations.
+
+The shadow CSV and live evidence remain ignored. Public `jobs.csv` is unchanged.
+The current trusted production workflow remains active pending Anthony's later
+adoption decision; a validated shadow candidate does not grant adoption or merge.
+
 ## Ownership and boundaries
 
 - The current accepted Playbook owns weekly operating semantics and editorial

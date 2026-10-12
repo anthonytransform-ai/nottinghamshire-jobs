@@ -221,6 +221,8 @@ class SourceRun:
     normal_collection_completed: bool = False
     limitation: str = ""
     error: str = ""
+    collection_method: str = ""
+    collection_context: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         try:
@@ -376,6 +378,8 @@ class SourceRun:
             normal_collection_completed=bool(value.get("normal_collection_completed", False)),
             limitation=_text(value.get("limitation"), field_name="limitation"),
             error=_text(value.get("error"), field_name="error"),
+            collection_method=_text(value.get("collection_method"), field_name="collection_method"),
+            collection_context=dict(value.get("collection_context", {})),
         )
 
 
@@ -530,6 +534,18 @@ class WorkingStateStore:
                 except (json.JSONDecodeError, TypeError, ValueError) as exc:
                     raise ValueError(f"Invalid raw candidate at line {line_number}") from exc
         return candidates
+
+    def replace_source_candidates(self, source_id: str, candidates: Sequence[RawCandidate]) -> None:
+        """Atomically checkpoint one source without discarding other source evidence."""
+        if any(candidate.source_id != source_id for candidate in candidates):
+            raise ValueError("Replacement candidates must belong to the selected source")
+        retained = [candidate for candidate in self.load_raw_candidates() if candidate.source_id != source_id]
+        self.ensure()
+        temporary = self.paths.raw_candidates.with_suffix(".jsonl.tmp")
+        with temporary.open("w", encoding="utf-8", newline="\n") as handle:
+            for candidate in [*retained, *candidates]:
+                handle.write(json.dumps(candidate.to_mapping(), ensure_ascii=False, sort_keys=True) + "\n")
+        temporary.replace(self.paths.raw_candidates)
 
     def save_draft_candidates(self, candidates: Sequence[Mapping[str, Any]]) -> None:
         self._write_json(self.paths.draft_candidates, list(candidates))

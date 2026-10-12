@@ -3,3 +3,4 @@
 
 # Resumable local state for Workflow-First weekly runs
 .weekly-job-update/
+__pycache__/

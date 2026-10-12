@@ -183,6 +183,28 @@ The earlier publication mechanism based on `job-update-staging`, Base64 `.job-up
 
 ## Run locally
 
+### Weekly collection pilot (development tooling)
+
+The repo-local `weekly-job-update` Skill now has three evidence-only pilot
+adapters and bounded [source access recipes](scripts/collector-access-recipes.md).
+They load the canonical JSON registry, retain source-exposed advert identities
+and raw details, and persist truthful source status under ignored
+`.weekly-job-update/`. They do not decide eligibility or generate summaries.
+
+Read the [Skill](.agents/skills/weekly-job-update/SKILL.md) for invocation and
+one-source-at-a-time row finishing. Python's standard library handles HTTP/HTML;
+rendered collection uses the pinned development dependency in
+`scripts/requirements-collection.txt`. An installed Edge channel can be used on
+Windows; other hosts can use ordinary Playwright Chromium. The static site has
+no new runtime dependency.
+
+`scripts/prepare_weekly_shadow.py` supports ANT-259's explicitly authorised
+controlled comparison: retain the approved same-day trusted non-pilot rows,
+replace the freshly judged pilot portions, audit exceptions and validate a local
+16-column shadow CSV. It holds the non-pilot fields constant and labels inherited
+exceptions. It does not publish `jobs.csv` or adopt the pilot as the production
+workflow.
+
 Because browsers block `fetch()` from a `file://` page, use a small local static server:
 
 ```powershell
