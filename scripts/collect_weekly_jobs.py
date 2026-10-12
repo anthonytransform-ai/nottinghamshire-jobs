@@ -19,6 +19,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urljoin, urlparse
 from urllib.request import Request, urlopen
 
+from scripts.role_content import role_paragraphs
 from scripts.weekly_job_update import (
     DEFAULT_WORKING_ROOT, RawCandidate, RawCandidateStatus, SourceRun,
     SourceRunStatus, WorkingStateStore, load_registry,
@@ -517,6 +518,12 @@ def parse_detail(source, row, html):
         raise CollectionError(f"No adapter is registered for source {source.source_id}")
     if not body:
         raise CollectionError("Advert has no readable body evidence")
+    # Metadata was read above; prefer role sections for judgement while keeping
+    # the complete HTML in the evidence cache. Do not write a final summary here.
+    if source.method in {"jobtrain", "university-vacancies", "oracle-cloud"}:
+        paragraphs = role_paragraphs(source, root)
+        if paragraphs:
+            body = " ".join(paragraphs)
     location = facts.get("location", row.get("location", ""))
     if source.source_id == PILOTS[2]:
         location = ", ".join(v for v in (facts.get("site", ""), facts.get("town", "")) if v)

@@ -130,6 +130,22 @@ and an explicit destination/summary exception assessment. The local helper in
 `scripts/prepare_weekly_shadow.py` checks that no raw identity remains unfinished;
 it does not make eligibility/classification/deduplication decisions for the agent.
 
+Apply the Playbook's semantic summary and participant-usability gates before
+counting a row finished. Consume provider role-content recipes and retained
+HTML; use `scripts/role_content.py` to expose role sections for judgement.
+Nonblank branding/metadata/qualification text is an unfinished summary when
+substantive role evidence exists. Review repeated summaries/prefixes and short
+summaries with representative provider sampling and deterministic flags in
+`scripts/participant_job_policy.py`; flags are review aids, not semantic proof.
+
+Prefer a specific apply destination only when usable from a fresh session.
+For iTrent, never publish `USESSION` links or count them as job-specific
+participant destinations. Use the stable registry board when detail is
+session-bound/known blocked, retain title/VACANCY_ID and observed detail URL in
+provenance, and record the shared-page limitation. Do not manufacture a direct
+route by stripping security parameters. Validate final participant URLs with
+the participant-policy helper, separately from the narrow CSV validator.
+
 ### Historical ANT-259 controlled integration shadow (reference only)
 
 Anthony's explicit ANT-259 pilot boundary permits retaining today's trusted

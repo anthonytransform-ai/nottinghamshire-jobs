@@ -16,6 +16,7 @@ import re
 from urllib.parse import urlparse
 
 from scripts.collect_weekly_jobs import PILOTS
+from scripts.participant_job_policy import validate_participant_url
 from scripts.validate_job_update import SUMMARY_COLUMNS, parse_csv_bytes, validate_csv_bytes
 from scripts.weekly_job_update import DEFAULT_WORKING_ROOT, SourceRunStatus, WorkingStateStore, load_registry
 
@@ -41,6 +42,7 @@ def finish_source(source_id, candidates, decisions):
         row = decision.get("row", {})
         if set(row) != set(SUMMARY_COLUMNS) or not all(isinstance(v, str) for v in row.values()):
             raise ValueError("Included rows must contain the complete 16 string fields")
+        validate_participant_url(load_registry().get(source_id), row["apply_url"])
         audit = decision.get("audit", {})
         if not isinstance(audit.get("shared_apply_url"), bool):
             raise ValueError("Agent must explicitly assess the participant-facing destination")

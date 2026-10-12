@@ -450,7 +450,8 @@ Do not infer full-time/part-time solely from salary or title.
 
 ### 10.1 `apply_url`
 
-`apply_url` is the participant-facing destination.
+`apply_url` is the best usable participant-facing destination. Specificity is
+preferred only when the route is usable outside the collector session.
 
 Prefer, in order:
 
@@ -462,7 +463,17 @@ When a list displays a clickable job title, preserve that actual target and foll
 
 Do not replace a source-exposed job-specific target with the board URL merely because the board is easier to fetch.
 
-If the current list exposes a genuine job-specific href but the detail page cannot be rendered, keep that href as `apply_url` when it is clearly the current vacancy destination.
+If the current list exposes a job-specific href but detail cannot be rendered,
+keep it only when there is evidence that it remains usable in a fresh session.
+An observed collector-session URL alone is insufficient. Transient session
+tokens must not enter durable participant links.
+
+For iTrent, a detail URL containing `USESSION` belongs in retained `detail_url`
+and provenance, not final `apply_url`. A known fresh-session `E0227SECURITY`
+failure requires the exact stable registry board/WVID route, with a shared-page
+limitation. Retain the vacancy title and observed VACANCY_ID in evidence; keep
+any advertised reference separately. Do not guess a stable direct route or
+experimentally remove session/security parameters to manufacture one.
 
 Do not manufacture a job URL from a title or guessed slug.
 
@@ -523,6 +534,27 @@ Do **not** start search-engine recovery, PDF hunting or alternate-route investig
 A blank summary does not make an otherwise valid vacancy ineligible, but it must result from genuine detail unavailability/insufficiency rather than skipped normal click-through.
 
 There is no numerical summary-coverage target.
+
+### Semantic summary gate
+
+A nonblank summary must explain the role's purpose or main work. Branding,
+benefits, EDI/about-employer copy, application instructions, qualification-only
+text and salary/contract metadata are not role summaries. Accessible substantive
+role evidence plus a generic or blank summary means the row is unfinished.
+
+Use the provider's settled role-content recipe. NTU prefers `About the Role`;
+Oracle prefers role/responsibility sections before `About You`; University of
+Nottingham uses descriptive paragraphs after the facts; HealthJobsUK uses a
+role-specific overview, augmented/replaced by `Main duties of the job` when the
+overview is promotional. GOV.UK uses responsibilities/overview; when no useful
+narrative duties exist, verified structured job role, subject and key stage may
+support a short factual summary. A title alone cannot support inferred duties.
+
+Flag identical/near-identical summaries and repeated employer prefixes across
+different vacancies. Short summaries trigger semantic review, not a numerical
+rejection rule. Use representative provider sampling plus pattern checks to
+find systemic defects; a clean heuristic scan does not prove semantic quality.
+Keep genuinely unavailable/insufficient role evidence blank with a reason.
 
 ---
 
@@ -688,6 +720,17 @@ Then review only the exceptions:
 2. Every blank `job_summary` must reflect genuine detail unavailability/insufficiency. If an available individual advert was skipped, return to that source and complete the row.
 3. If many rows from one source share its board URL even though that source normally exposes clickable adverts, treat that as an execution defect.
 4. `source_url` may equal `apply_url` when the individual advert is also the verification source. Do not force them to differ.
+
+5. Check participant usability from a fresh-session perspective. Session-bound
+   iTrent detail routes must not be counted as job-specific destinations; use
+   the registered stable board and record its limitation.
+6. Apply the semantic summary gate above. Nonblank summary counts do not prove
+   that summaries describe work. Repeated branding, metadata-first or
+   requirements-only summaries require repair from retained role evidence.
+
+The deterministic participant URL check in
+`scripts/participant_job_policy.py` supports this editorial/link-policy layer;
+it does not widen the repository's narrow CSV safety validator.
 
 There is no required percentage target. The audit exists to distinguish genuine source limitations from skipped normal work.
 
