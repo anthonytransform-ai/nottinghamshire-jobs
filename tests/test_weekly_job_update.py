@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -74,9 +75,12 @@ class RegistryTests(unittest.TestCase):
 
         self.assertIn("references/source-registry.json", skill)
         self.assertIn("references/playbook.md", skill)
-        self.assertIn("cat=-1", playbook)
-        self.assertIn("/Home/Job", playbook)
+        self.assertIn("university-of-nottingham", playbook)
+        self.assertIn("nottingham-trent-university", playbook)
+        self.assertNotIn("| Source | Fixed weekly route |", playbook)
         self.assertIn("exact 16-column `jobs.csv`", playbook)
+        self.assertIn("validator proves only", playbook)
+        self.assertIn("editorial/data-quality review", playbook)
         self.assertIn("source completion gate", playbook.lower())
 
 
@@ -133,6 +137,62 @@ class SourceRunTests(unittest.TestCase):
                 finished_at="2026-10-12T10:01:00+01:00",
                 normal_collection_completed=False,
             )
+
+    def test_terminal_invariants_are_rejected_at_construction_and_load(self):
+        base = {
+            "source_id": "example-source",
+            "started_at": "2026-10-12T10:00:00+01:00",
+            "finished_at": "2026-10-12T10:01:00+01:00",
+            "candidate_count": 0,
+            "normal_collection_completed": False,
+        }
+        malformed = (
+            {**base, "status": "EMPTY"},
+            {**base, "status": "PARTIAL"},
+            {**base, "status": "ERROR"},
+        )
+
+        for mapping in malformed:
+            with self.subTest(status=mapping["status"]):
+                with self.assertRaises(ValueError):
+                    SourceRun.from_mapping(mapping)
+
+        with self.assertRaises(ValueError):
+            SourceRun(
+                "example-source",
+                status=SourceRunStatus.EMPTY,
+                started_at=base["started_at"],
+                finished_at=base["finished_at"],
+            )
+
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as temporary_directory:
+            store = WorkingStateStore(temporary_directory)
+            store.paths.source_runs.write_text(
+                json.dumps({"schema_version": 1, "sources": [malformed[0]]}),
+                encoding="utf-8",
+            )
+            with self.assertRaises(ValueError):
+                store.load_source_runs()
+
+    def test_valid_resumable_states_round_trip_and_save_revalidates(self):
+        queued = SourceRun("queued-source")
+        running = SourceRun("running-source")
+        running.begin("2026-10-12T10:00:00+01:00")
+
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as temporary_directory:
+            store = WorkingStateStore(temporary_directory)
+            store.save_source_runs([queued, running])
+
+            restored = store.load_source_runs()
+            self.assertEqual(
+                [SourceRunStatus.NOT_STARTED, SourceRunStatus.RUNNING],
+                [run.status for run in restored],
+            )
+            self.assertEqual("2026-10-12T10:00:00+01:00", restored[1].started_at)
+
+            running.status = SourceRunStatus.EMPTY
+            with self.assertRaises(ValueError):
+                store.save_source_runs([running])
 
 
 class RawCandidateTests(unittest.TestCase):

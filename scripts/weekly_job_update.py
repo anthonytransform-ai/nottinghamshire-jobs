@@ -222,10 +222,99 @@ class SourceRun:
     limitation: str = ""
     error: str = ""
 
+    def __post_init__(self) -> None:
+        try:
+            status = self.status if isinstance(self.status, SourceRunStatus) else SourceRunStatus(self.status)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Unknown source run status: {self.status!r}") from exc
+        object.__setattr__(self, "status", status)
+        object.__setattr__(self, "source_id", _text(self.source_id, field_name="source_id", required=True))
+        self.validate()
+
+    @staticmethod
+    def _validate_values(
+        *,
+        status: SourceRunStatus,
+        started_at: Any,
+        finished_at: Any,
+        candidate_count: int,
+        normal_collection_completed: bool,
+        limitation: str,
+        error: str,
+    ) -> None:
+        if candidate_count < 0:
+            raise ValueError("candidate_count must not be negative")
+
+        started = _text(started_at, field_name="started_at")
+        finished = _text(finished_at, field_name="finished_at")
+        limitation_text = _text(limitation, field_name="limitation")
+        error_text = _text(error, field_name="error")
+
+        if status is SourceRunStatus.NOT_STARTED:
+            if started or finished or candidate_count != 0 or normal_collection_completed:
+                raise ValueError("NOT_STARTED cannot carry collection progress or timestamps")
+            if limitation_text.strip() or error_text.strip():
+                raise ValueError("NOT_STARTED cannot carry a limitation or error")
+            return
+
+        if status is SourceRunStatus.RUNNING:
+            if not started:
+                raise ValueError("RUNNING requires started_at")
+            if finished or normal_collection_completed:
+                raise ValueError("RUNNING cannot be finished or marked normally complete")
+            if limitation_text.strip() or error_text.strip():
+                raise ValueError("RUNNING cannot carry a limitation or error")
+            return
+
+        if status not in TERMINAL_SOURCE_STATUSES:
+            raise ValueError(f"Unknown source run status: {status!r}")
+        if not started or not finished:
+            raise ValueError(f"{status.value} requires started_at and finished_at")
+
+        if status is SourceRunStatus.EMPTY:
+            if not normal_collection_completed or candidate_count != 0:
+                raise ValueError("EMPTY requires a completed normal collection with zero candidates")
+            if limitation_text.strip() or error_text.strip():
+                raise ValueError("EMPTY cannot carry a limitation or error")
+        elif status is SourceRunStatus.OK:
+            if not normal_collection_completed or candidate_count == 0:
+                raise ValueError("OK requires a completed normal collection with at least one candidate")
+            if limitation_text.strip() or error_text.strip():
+                raise ValueError("OK cannot carry a limitation or error")
+        elif status is SourceRunStatus.PARTIAL:
+            if not limitation_text.strip():
+                raise ValueError("PARTIAL requires a nonblank limitation")
+        elif status is SourceRunStatus.ERROR:
+            if not error_text.strip():
+                raise ValueError("ERROR requires a nonblank error")
+
+    def validate(self) -> None:
+        """Validate a run at every construction, load and save boundary."""
+
+        self._validate_values(
+            status=self.status,
+            started_at=self.started_at,
+            finished_at=self.finished_at,
+            candidate_count=self.candidate_count,
+            normal_collection_completed=self.normal_collection_completed,
+            limitation=self.limitation,
+            error=self.error,
+        )
+
     def begin(self, started_at: str) -> None:
         if self.status is not SourceRunStatus.NOT_STARTED:
             raise ValueError(f"Source {self.source_id} cannot begin from {self.status.value}")
-        self.started_at = _text(started_at, field_name="started_at", required=True)
+        started = _text(started_at, field_name="started_at", required=True)
+        self._validate_values(
+            status=SourceRunStatus.RUNNING,
+            started_at=started,
+            finished_at=None,
+            candidate_count=self.candidate_count,
+            normal_collection_completed=False,
+            limitation="",
+            error="",
+        )
+        self.started_at = started
         self.status = SourceRunStatus.RUNNING
 
     def complete(
@@ -240,35 +329,32 @@ class SourceRun:
     ) -> None:
         if self.status is not SourceRunStatus.RUNNING:
             raise ValueError(f"Source {self.source_id} cannot complete from {self.status.value}")
-        if outcome not in TERMINAL_SOURCE_STATUSES:
+        try:
+            outcome_status = outcome if isinstance(outcome, SourceRunStatus) else SourceRunStatus(outcome)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Source outcome must be terminal, got {outcome!r}") from exc
+        if outcome_status not in TERMINAL_SOURCE_STATUSES:
             raise ValueError(f"Source outcome must be terminal, got {outcome!r}")
-        if candidate_count < 0:
-            raise ValueError("candidate_count must not be negative")
-        if outcome is SourceRunStatus.EMPTY:
-            if not normal_collection_completed or candidate_count != 0:
-                raise ValueError("EMPTY requires a completed normal collection with zero candidates")
-            if limitation.strip() or error.strip():
-                raise ValueError("EMPTY cannot carry a limitation or error")
-        elif outcome is SourceRunStatus.OK:
-            if not normal_collection_completed or candidate_count == 0:
-                raise ValueError("OK requires a completed normal collection with at least one candidate")
-            if error.strip():
-                raise ValueError("OK cannot carry an error")
-        elif outcome is SourceRunStatus.PARTIAL:
-            if not limitation.strip():
-                raise ValueError("PARTIAL requires a nonblank limitation")
-        elif outcome is SourceRunStatus.ERROR:
-            if not error.strip():
-                raise ValueError("ERROR requires a nonblank error")
+        finished = _text(finished_at, field_name="finished_at", required=True)
+        self._validate_values(
+            status=outcome_status,
+            started_at=self.started_at,
+            finished_at=finished,
+            candidate_count=candidate_count,
+            normal_collection_completed=normal_collection_completed,
+            limitation=limitation,
+            error=error,
+        )
 
-        self.status = outcome
-        self.finished_at = _text(finished_at, field_name="finished_at", required=True)
+        self.status = outcome_status
+        self.finished_at = finished
         self.candidate_count = candidate_count
         self.normal_collection_completed = normal_collection_completed
         self.limitation = limitation
         self.error = error
 
     def to_mapping(self) -> dict[str, Any]:
+        self.validate()
         value = asdict(self)
         value["status"] = self.status.value
         return value
@@ -281,8 +367,6 @@ class SourceRun:
         except ValueError as exc:
             raise ValueError(f"Unknown source run status: {status_value!r}") from exc
         candidate_count = int(value.get("candidate_count", 0))
-        if candidate_count < 0:
-            raise ValueError("candidate_count must not be negative")
         return cls(
             source_id=_text(value.get("source_id"), field_name="source_id", required=True),
             status=status,
@@ -413,7 +497,10 @@ class WorkingStateStore:
         self.paths.root.mkdir(parents=True, exist_ok=True)
 
     def save_source_runs(self, runs: Iterable[SourceRun]) -> None:
-        payload = {"schema_version": 1, "sources": [run.to_mapping() for run in runs]}
+        validated_runs = list(runs)
+        for run in validated_runs:
+            run.validate()
+        payload = {"schema_version": 1, "sources": [run.to_mapping() for run in validated_runs]}
         self._write_json(self.paths.source_runs, payload)
 
     def load_source_runs(self) -> list[SourceRun]:

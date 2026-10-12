@@ -70,52 +70,55 @@ Do not turn this checklist into a source-completeness ledger.
 
 ## 3. Fixed weekly Source Registry
 
-The registry defines where the agent goes and the normal way to reach the jobs. Do not rediscover these recruitment systems every week.
+The canonical machine-readable registry is
+`.agents/skills/weekly-job-update/references/source-registry.json`. It is the
+single maintained owner of the 19 fixed source identities, source families,
+collection methods, fixed routes, individual-route patterns, platform identity
+and registered fallbacks. Load it before a weekly run and iterate its records
+in listed order; do not rediscover these recruitment systems every week.
 
-**Registry-link rule:** the `Fixed weekly route` must be the most specific stable current-vacancy list/search surface we already know, not a generic careers landing page when a better stable list URL exists. Put critical list suffixes/query parameters directly in this table so the agent does not have to infer them later.
+The registry's `fixed_route` must remain the most specific stable current-
+vacancy list/search surface we know, rather than a generic careers landing page
+when a better stable list URL exists. Critical suffixes and query parameters
+belong in that JSON record so the agent does not have to infer them later.
 
-**Registry authority:** the version-controlled `source-registry.json` in this Skill is the canonical machine-readable owner of fixed source identity, routes, methods and registered fallbacks. This table remains the accepted human-readable operating guidance; do not maintain a competing route or source list outside that registry.
+This Playbook retains the operating and judgement rules for using those source
+records: one-source-at-a-time collection, ordinary pagination, row-level
+exclusions, individual-advert completion, fallback boundaries and final
+classification. It must refer to registry records rather than restating their
+routes, methods or fallback configuration. Do not maintain a competing source
+list or route table here.
+
+The registry's source-family order is councils, NHS, education and VCSE. The
+19 records in the registry are the complete fixed weekly source set.
 
 ### 3.1 Councils
 
-| Source | Fixed weekly route | Normal behaviour / individual jobs | Simple fallback / instruction |
-|---|---|---|---|
-| Nottinghamshire TAL | `https://nottinghamshire.tal.net/vx/lang-en-GB/mobile-0/appcentre-ext/brand-8/candidate/jobboard/vacancy/1/adv/` | Direct automated access may hit **Quick Check Needed**. Job titles normally expose job-specific TAL opportunity pages containing `/opp/<id>-.../`. The `xf-...` path segment seen in rendered/indexed TAL URLs is dynamic and is **not** part of the board identity. | Try the fixed board first. If blocked, use fresh web search/indexing restricted to `nottinghamshire.tal.net` and locate the current `brand-8` vacancy board even when the indexed URL has a different `xf-...` token. This is access to the known source, not source rediscovery. Preserve/follow current job-specific `/opp/<id>-.../` links where exposed. |
-| Nottingham City Council | `https://eism.fa.em2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/ncc/jobs` | Dynamic Oracle site. Individual pattern: `/sites/ncc/job/{Id}`. | Use the fixed Oracle site and rendered/current results when needed. The public requisition endpoint may be used as an optional efficiency aid if it still works, but weekly success does not depend on it. |
-| Ashfield District Council | `https://ce0930li.webitrent.com/ce0930li_webrecruitment/wrd/run/ETREC179GF.open?WVID=6777852QI7` | Exact iTrent WVID known; simple retrieval may return 403. | Use rendered access or fresh exact-domain indexing of this known portal. Capture current vacancy IDs/individual links; do not guess them. |
-| Mansfield District Council | `https://ce0930li.webitrent.com/ce0930li_webrecruitment/wrd/run/ETREC179GF.open?WVID=4128782IuI` | Same iTrent host as Ashfield but a different WVID. | Use this exact WVID and rendered/current results. Do not mix Mansfield and Ashfield results. |
-| Bassetlaw District Council | `https://ce0017li.webitrent.com/ce0017li_webrecruitment/wrd/run/ETREC179GF.open?WVID=8070960wxx` | Individual adverts use the WVID plus `VACANCY_ID=<id>`. | Use the fixed board. Rendered access or fresh exact-domain indexing is the normal fallback. |
-| Newark & Sherwood District Council | `https://ce0799li.webitrent.com/ce0799li_webrecruitment/wrd/run/ETREC179GF.open?WVID=3373962BPM` | Exact WVID known; simple retrieval may return 403. | Use rendered/current board or fresh exact-domain indexing. Capture the real current vacancy ID/link rather than guessing. |
-| Gedling Borough Council | `https://apps.gedling.gov.uk/jobs/` | Direct list. Individual route: `default.aspx?jobid=<id>`. | Process every visible current vacancy and follow the job-specific links. |
-| Broxtowe Borough Council | `https://www.broxtowe.gov.uk/for-you/jobs/current-vacancies/` | Direct list with individual vacancy pages. | Process the list and follow each qualifying vacancy link. |
-| Rushcliffe Borough Council | `https://www.rushcliffe.gov.uk/about-us/working-for-rbc/jobs/` | Direct list with vacancy-specific pages. | Process the list and click through to each qualifying advert. |
+Load the first nine records in registry order. Use each record's fixed route,
+individual-route pattern, method and registered fallback; the source-specific
+technical notes in Section 12 preserve the recurring operating traps without
+duplicating those values here.
 
 ### 3.2 NHS
 
-| Source | Fixed weekly route | Normal behaviour / individual jobs | Weekly instruction |
-|---|---|---|---|
-| Nottingham University Hospitals | `https://www.healthjobsuk.com/jobs_emp?emp=358` | Direct employer collection with individual HealthJobsUK/Trac adverts. | Collect the current jobs, filter to Nottinghamshire candidates, then open and finish the individual adverts before moving on. |
-| Nottinghamshire Healthcare | `https://www.healthjobsuk.com/job_list/?employerid=356` | Direct employer collection with individual adverts. | Some Trust jobs are outside Nottinghamshire. Filter by actual work base, then finish the qualifying individual adverts. |
-| Sherwood Forest Hospitals | `https://www.healthjobsuk.com/jobs_emp/Sherwood_Forest_Hospitals_NHS_Foundation_Trust?emp=345` | Direct employer collection with individual adverts. | Collect the current jobs, verify actual Nottinghamshire base/current status and any stated deadline, and finish each qualifying individual advert. |
+Load the three NHS records in registry order. Filter each Trust by actual work
+base, complete qualifying individual adverts and exclude an individual advert
+that is expired or withdrawn even if its collection still lists it.
 
 If a collection still lists a vacancy whose individual page is expired or withdrawn, exclude that vacancy. Do not investigate whether the whole collection is stale.
 
 ### 3.3 Education
 
-| Source | Fixed weekly route | Normal behaviour / individual jobs | Simple fallback / instruction |
-|---|---|---|---|
-| University of Nottingham | `https://jobs.nottingham.ac.uk/vacancies.aspx?cat=-1` | **Canonical all-vacancies list.** This is the University's full current-opportunities view, not merely one category. Individual pattern: `vacancy.aspx?ref=<reference>`. | **Always start from this exact `cat=-1` URL.** Do not start from the generic vacancies homepage or browse categories to reconstruct the list. Capture the current rows and their individual links from `cat=-1`, filter obvious Internal Only, China/Ningbo, studentships/non-employment and out-of-county rows, then follow and finish every qualifying individual advert before moving on. |
-| Nottingham Trent University | `https://vacancies.ntu.ac.uk/Home/Job` | **Canonical jobs surface.** The portal root redirects here. Dynamic Jobtrain rendering means a static retrieval can misleadingly show zero. Individual pattern: `Job/JobDetail?JobId=<id>`. | **Start from this exact `/Home/Job` route.** Use the rendered/current list and its normal Load More / page sequence; do not accept a static zero as authoritative. Capture and follow current Jobtrain IDs/links before closing the source. |
-| Nottingham College | `https://www.nottinghamcollege.ac.uk/about-us/working-for-us/current-vacancies` | Direct staff-vacancies page with individual vacancy pages. | Follow and finish the qualifying individual adverts. Do not confuse college employment with external apprenticeships advertised to learners. |
-| West Nottinghamshire College | `https://vacancies.wnc.ac.uk/ce0999li_webrecruitment/wrd/run/etrec179gf.open?wvid=5245470Prv` | Exact iTrent board known; simple retrieval may return 403. | Use rendered/current board or fresh exact-domain indexing. Capture the actual current individual vacancy ID/link rather than guessing. |
-| North Notts College / RNN Group | `https://ce0833li.webitrent.com/ce0833li_webrecruitment/wrd/run/ETREC179GF.open?WVID=8759023jQy` | Exact iTrent WVID known. Individual adverts use the WVID plus `VACANCY_ID=<id>`. | Include Nottinghamshire bases such as Worksop/North Notts; exclude Rotherham/other out-of-county bases. |
-| GOV.UK Teaching Vacancies | `https://teaching-vacancies.service.gov.uk/jobs?location=Nottinghamshire&page=1` | Direct paginated list. Each result has an individual `/jobs/<slug>` advert. | Start with this exact query and increment only `page=` through the visible results. Capture the individual result hrefs, filter by actual address, then finish each qualifying individual advert before moving on. |
+Load the six education records in registry order. The University and NTU
+surface-specific rules are retained in Section 12; complete the individual
+advert before closing each source. Exclude external apprenticeships advertised
+to learners when processing college staff vacancies.
 
 ### 3.4 VCSE
 
-| Source | Fixed weekly route | Normal behaviour / individual jobs | Simple fallback / instruction |
-|---|---|---|---|
-| Nottingham CVS | `https://www.nottinghamcvs.co.uk/news-and-events/jobs` | Direct retrieval can intermittently fail. Entries normally link onward to an organisation or vacancy advert. | Try the fixed page first. If unavailable, use a fresh indexed copy of this exact page, then follow the current vacancy/employer links. Do not broadly rediscover “Nottingham charity jobs”. |
+Load the final VCSE record from the registry. If the fixed page is unavailable,
+use only its registered fallback and follow current vacancy or employer links;
+do not broadly rediscover charity jobs.
 
 ---
 
@@ -529,61 +532,59 @@ These notes explain recurring technical traps. They do not replace the one-sourc
 
 ### 12.1 Nottinghamshire TAL
 
-- Use the fixed `brand-8` board from the registry.
+- Use the `nottinghamshire-tal` registry record and its fixed route.
 - A human-verification screen does not mean there are no jobs.
-- The `xf-...` segment is dynamic. A freshly indexed official TAL board with a different `xf-...` token can still be the same current `brand-8` source.
+- The registry record identifies the stable board identity; any disposable session or indexing token in a rendered URL does not change that identity.
 - If direct access fails, use fresh search/indexing restricted to `nottinghamshire.tal.net` to reach the current official board/content.
 - This exact-domain fallback is permitted access to the known source; it is not source rediscovery.
-- Preserve and follow current source-exposed individual `/opp/<id>-.../` links.
+- Preserve and follow the current source-exposed individual link matching the registry's individual-route pattern.
 - Do not reconcile competing cached/indexed board counts.
 - Classify each vacancy normally; a school/trust vacancy on TAL can be `Education` rather than `Council`.
 
 ### 12.2 Nottingham City Oracle
 
-- Use the fixed Oracle careers site.
+- Use the `nottingham-city-council` registry record and its fixed route.
 - Static extraction may be incomplete; use rendered/current results.
-- Preserve the current Oracle job ID and use `/job/{Id}` when available.
+- Preserve the current Oracle job ID and use the registry's individual-route pattern when available.
 - The public requisition endpoint may be used as an optional efficiency mechanism if useful, but the weekly run does not need to prove an API population count.
 
 ### 12.3 iTrent
 
-- Use the exact employer WVID in the registry.
+- Use the exact employer record and WVID in the registry.
 - WVID matters where employers share a host.
 - Direct retrieval may return 403; rendered access or fresh exact-domain indexing is the normal fallback.
-- Capture current `VACANCY_ID`/individual href from the current source rather than guessing.
+- Capture the current vacancy ID/individual href from the current source rather than guessing; use the registry's individual-route pattern where it supplies one.
 - Ignore transient session parameters when a stable job-specific URL is available.
 
 ### 12.4 HealthJobsUK / Trac
 
-- Use the exact employer collection in the registry.
+- Use the exact employer collection from the relevant registry record.
 - Filter by actual work base where a Trust advertises out-of-county roles.
 - Open individual adverts for current status, any stated deadline, reference, site and duties.
 - If a listed advert is expired, exclude the vacancy and continue.
 
 ### 12.5 University of Nottingham
 
-**Canonical weekly all-vacancies route:**
+Use the `university-of-nottingham` registry record and always open its
+`fixed_route` directly. That record is the canonical all-vacancies surface and
+the normal weekly starting point, not a category reconstruction or a generic
+homepage. Use its `individual_route_pattern` for the source-exposed vacancy
+links.
 
-`https://jobs.nottingham.ac.uk/vacancies.aspx?cat=-1`
-
-- `cat=-1` is the **Full list of current opportunities** and is the normal weekly starting point.
-- Always open this exact URL directly. Do not substitute the generic `Vacancies.aspx` homepage, a category page, or a search-engine reconstruction.
-- Capture the visible current vacancy rows and the source-exposed `vacancy.aspx?ref=<reference>` individual links from this page.
+- Capture the visible current vacancy rows from that registry route.
 - Exclude obvious Internal Only, non-employment studentships, China/Ningbo and clear non-Nottinghamshire jobs cheaply.
 - Finish every retained candidate through its individual advert before closing the University of Nottingham source work unit.
 - No weekly category/site rediscovery is needed.
 
 ### 12.6 Nottingham Trent University
 
-**Canonical weekly jobs route:**
+Use the `nottingham-trent-university` registry record and start from its
+`fixed_route` rather than the portal root. The final jobs surface is kept in
+the registry so the weekly run does not need to infer a route from a redirect.
 
-`https://vacancies.ntu.ac.uk/Home/Job`
-
-- Start from this exact `/Home/Job` jobs surface rather than the portal root.
-- The portal root currently redirects to `/Home/Job`; keeping the final jobs route in the registry removes an unnecessary inference step.
 - Static zero is not authoritative when the rendered/current portal contains jobs.
 - Use the rendered/current list and its normal Load More / page sequence, then capture the source-exposed Jobtrain IDs/links.
-- Finish qualifying rows through their `Job/JobDetail?JobId=<id>` adverts before closing the NTU source work unit.
+- Finish qualifying rows through the registry's individual-route pattern before closing the NTU source work unit.
 - Do not investigate Jobtrain internals every week.
 
 ### 12.7 GOV.UK Teaching Vacancies
@@ -696,28 +697,47 @@ A blank `closing_date` is not a quality failure when the current advert genuinel
 
 ## 16. Deterministic CSV validation
 
-Validate the generated file rather than manually repairing it after serialization.
+Validate the generated file rather than manually repairing it after
+serialization. Keep the repository's mechanical safety gate separate from the
+broader Playbook/editorial review; neither gate should be described as proving
+the other.
 
-Check:
+### 16.1 Repository structural/security validator
 
-- exact 16-column header/order;
-- UTF-8/valid CSV structure;
+Execute `py -m scripts.validate_job_update jobs.csv` against the **exact final
+`jobs.csv` candidate** that will be committed/pushed. The current repository
+validator proves only:
+
+- valid UTF-8 and well-formed CSV structure;
+- the supported 15-/16-column header and field-count contract;
+- a nonblank HTTP(S) `apply_url` for each row; and
+- complete-file reading with deterministic row-count and checksum reporting.
+
+It does **not** mechanically prove `date_checked` consistency, canonical dates,
+closing-time format or expiry relation, controlled classifications, required
+editorial fields or `source_url`, duplicate rules, summary wording or
+normalisation, or deterministic sort. Do not report any of those broader checks
+as enforced by the repository validator, and do not broaden that validator as
+part of a weekly run.
+
+### 16.2 Playbook/editorial/data-quality review
+
+Separately apply the full Playbook checks to the exact candidate:
+
 - one consistent `date_checked`;
 - canonical `YYYY-MM-DD` dates;
 - blank or valid `HH:MM` closing times;
 - when `closing_date` is non-blank, require `closing_date >= date_checked`; blank is valid for a live vacancy with no fixed stated deadline;
-- controlled enum values;
-- HTTP(S) `apply_url` and `source_url`;
-- required fields;
+- controlled enum values and required fields, including a strong current `source_url`;
 - duplicate rules;
-- normalised single-paragraph `job_summary` when non-blank;
+- normalised single-paragraph `job_summary` when non-blank; and
 - deterministic sort: organisation A–Z, dated vacancies by closing date earliest first, undated/rolling vacancies after dated vacancies, then job title A–Z.
 
-Execute the repository validator against the **exact final `jobs.csv` candidate** that will be committed/pushed.
-
-Do not report validation as passed because the validator code was inspected or because the CSV appears valid manually. Report pass only after the exact candidate validation actually succeeds.
-
-The validator proves structural integrity. It does not prove recruitment-platform completeness and does not replace the participant-facing quality audit.
+Do not report validation as passed because the validator code was inspected or
+because the CSV appears valid manually. Report the repository gate as passed
+only after the exact candidate validation actually succeeds, and report the
+editorial/data-quality review separately. Neither gate proves recruitment-
+platform completeness or replaces the participant-facing quality audit.
 
 ---
 
@@ -780,11 +800,11 @@ The following may need one-time technical confirmation outside the normal weekly
 
 Known operational behaviours already sufficient for weekly work include:
 
-- TAL: fixed `brand-8` board + fresh exact-domain indexed fallback; dynamic `xf-...` tokens are disposable;
-- Bassetlaw and RNN iTrent: WVID + `VACANCY_ID` pattern known;
-- Nottingham City Oracle: fixed site + `/job/{Id}` known; API optional;
-- NTU: static zero is not authoritative;
-- Nottingham CVS: fixed page + fresh indexed copy fallback.
+- `nottinghamshire-tal`: use the registry's stable board identity and registered exact-domain fallback; rendered session tokens are disposable;
+- Bassetlaw and RNN iTrent: use the registry WVID and individual-route pattern;
+- `nottingham-city-council`: use the registry site and individual-route pattern; API remains optional;
+- `nottingham-trent-university`: a static zero is not authoritative;
+- `nottingham-cvs`: use the registry fixed page and registered indexed-copy fallback.
 
 ---
 
