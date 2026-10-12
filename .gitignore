@@ -1,2 +1,5 @@
 # Machine-local J_OS link config
 .j_os/project-link.local.md
+
+# Resumable local state for Workflow-First weekly runs
+.weekly-job-update/

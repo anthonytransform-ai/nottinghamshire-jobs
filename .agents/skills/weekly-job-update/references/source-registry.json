@@ -1,0 +1,208 @@
+{
+  "registry_id": "nottinghamshire-jobs-fixed-weekly-sources",
+  "schema_version": 1,
+  "source_count": 19,
+  "description": "Canonical fixed source registry for the Nottinghamshire Jobs Workflow-First weekly update.",
+  "sources": [
+    {
+      "id": "nottinghamshire-tal",
+      "name": "Nottinghamshire TAL",
+      "family": "council",
+      "method": "tal",
+      "platform": "TAL",
+      "fixed_route": "https://nottinghamshire.tal.net/vx/lang-en-GB/mobile-0/appcentre-ext/brand-8/candidate/jobboard/vacancy/1/adv/",
+      "individual_route_pattern": "/opp/<id>-.../",
+      "fallback": "If the fixed board is blocked, use fresh exact-domain indexing restricted to nottinghamshire.tal.net to locate the current brand-8 board. Preserve and follow current source-exposed /opp/<id>-.../ links.",
+      "notes": [
+        "The xf-... path segment is dynamic and is not part of the board identity.",
+        "A school or trust vacancy from this source can classify as Education rather than Council."
+      ]
+    },
+    {
+      "id": "nottingham-city-council",
+      "name": "Nottingham City Council",
+      "family": "council",
+      "method": "oracle-cloud",
+      "platform": "Oracle Cloud Candidate Experience",
+      "fixed_route": "https://eism.fa.em2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/ncc/jobs",
+      "individual_route_pattern": "/sites/ncc/job/{id}",
+      "fallback": "Use rendered/current results from the fixed Oracle site when static extraction is incomplete. The public requisition endpoint is optional and is not required to establish weekly success."
+    },
+    {
+      "id": "ashfield-district-council",
+      "name": "Ashfield District Council",
+      "family": "council",
+      "method": "itrent",
+      "platform": "iTrent",
+      "wvid": "6777852QI7",
+      "fixed_route": "https://ce0930li.webitrent.com/ce0930li_webrecruitment/wrd/run/ETREC179GF.open?WVID=6777852QI7",
+      "individual_route_pattern": null,
+      "fallback": "Use rendered access or fresh exact-domain indexing of this known portal when simple retrieval returns 403. Capture current vacancy IDs or individual links; do not guess them."
+    },
+    {
+      "id": "mansfield-district-council",
+      "name": "Mansfield District Council",
+      "family": "council",
+      "method": "itrent",
+      "platform": "iTrent",
+      "wvid": "4128782IuI",
+      "fixed_route": "https://ce0930li.webitrent.com/ce0930li_webrecruitment/wrd/run/ETREC179GF.open?WVID=4128782IuI",
+      "individual_route_pattern": null,
+      "fallback": "Use this exact WVID and rendered/current results when simple retrieval returns 403. Do not mix Mansfield and Ashfield results."
+    },
+    {
+      "id": "bassetlaw-district-council",
+      "name": "Bassetlaw District Council",
+      "family": "council",
+      "method": "itrent",
+      "platform": "iTrent",
+      "wvid": "8070960wxx",
+      "fixed_route": "https://ce0017li.webitrent.com/ce0017li_webrecruitment/wrd/run/ETREC179GF.open?WVID=8070960wxx",
+      "individual_route_pattern": "https://ce0017li.webitrent.com/ce0017li_webrecruitment/wrd/run/ETREC179GF.open?WVID=8070960wxx&VACANCY_ID=<id>",
+      "fallback": "Use rendered access or fresh exact-domain indexing of the fixed board when needed."
+    },
+    {
+      "id": "newark-and-sherwood-district-council",
+      "name": "Newark & Sherwood District Council",
+      "family": "council",
+      "method": "itrent",
+      "platform": "iTrent",
+      "wvid": "3373962BPM",
+      "fixed_route": "https://ce0799li.webitrent.com/ce0799li_webrecruitment/wrd/run/ETREC179GF.open?WVID=3373962BPM",
+      "individual_route_pattern": null,
+      "fallback": "Use rendered/current board or fresh exact-domain indexing. Capture the real current vacancy ID or link rather than guessing."
+    },
+    {
+      "id": "gedling-borough-council",
+      "name": "Gedling Borough Council",
+      "family": "council",
+      "method": "council-direct",
+      "platform": "Gedling jobs",
+      "fixed_route": "https://apps.gedling.gov.uk/jobs/",
+      "individual_route_pattern": "default.aspx?jobid=<id>",
+      "fallback": "Process every visible current vacancy and follow the job-specific links."
+    },
+    {
+      "id": "broxtowe-borough-council",
+      "name": "Broxtowe Borough Council",
+      "family": "council",
+      "method": "council-direct",
+      "platform": "Broxtowe Council",
+      "fixed_route": "https://www.broxtowe.gov.uk/for-you/jobs/current-vacancies/",
+      "individual_route_pattern": null,
+      "fallback": "Process the list and follow each qualifying vacancy link."
+    },
+    {
+      "id": "rushcliffe-borough-council",
+      "name": "Rushcliffe Borough Council",
+      "family": "council",
+      "method": "council-direct",
+      "platform": "Rushcliffe Council",
+      "fixed_route": "https://www.rushcliffe.gov.uk/about-us/working-for-rbc/jobs/",
+      "individual_route_pattern": null,
+      "fallback": "Process the list and click through to each qualifying advert."
+    },
+    {
+      "id": "nottingham-university-hospitals",
+      "name": "Nottingham University Hospitals",
+      "family": "nhs",
+      "method": "healthjobsuk-trac",
+      "platform": "HealthJobsUK / Trac",
+      "fixed_route": "https://www.healthjobsuk.com/jobs_emp?emp=358",
+      "individual_route_pattern": null,
+      "fallback": "Collect the current employer jobs, filter to Nottinghamshire candidates, then finish the individual adverts before moving on."
+    },
+    {
+      "id": "nottinghamshire-healthcare",
+      "name": "Nottinghamshire Healthcare",
+      "family": "nhs",
+      "method": "healthjobsuk-trac",
+      "platform": "HealthJobsUK / Trac",
+      "fixed_route": "https://www.healthjobsuk.com/job_list/?employerid=356",
+      "individual_route_pattern": null,
+      "fallback": "Filter by actual Nottinghamshire work base because some Trust jobs are outside Nottinghamshire, then finish qualifying individual adverts."
+    },
+    {
+      "id": "sherwood-forest-hospitals",
+      "name": "Sherwood Forest Hospitals",
+      "family": "nhs",
+      "method": "healthjobsuk-trac",
+      "platform": "HealthJobsUK / Trac",
+      "fixed_route": "https://www.healthjobsuk.com/jobs_emp/Sherwood_Forest_Hospitals_NHS_Foundation_Trust?emp=345",
+      "individual_route_pattern": null,
+      "fallback": "Verify the actual Nottinghamshire base, current status and any stated deadline, then finish each qualifying individual advert."
+    },
+    {
+      "id": "university-of-nottingham",
+      "name": "University of Nottingham",
+      "family": "education",
+      "method": "university-vacancies",
+      "platform": "University vacancies",
+      "fixed_route": "https://jobs.nottingham.ac.uk/vacancies.aspx?cat=-1",
+      "individual_route_pattern": "vacancy.aspx?ref=<reference>",
+      "fallback": "Always start from the exact cat=-1 full current-opportunities route. Capture current rows and individual links, exclude obvious Internal Only, China/Ningbo, studentships or non-Nottinghamshire roles, and finish every qualifying advert."
+    },
+    {
+      "id": "nottingham-trent-university",
+      "name": "Nottingham Trent University",
+      "family": "education",
+      "method": "jobtrain",
+      "platform": "Jobtrain",
+      "fixed_route": "https://vacancies.ntu.ac.uk/Home/Job",
+      "individual_route_pattern": "Job/JobDetail?JobId=<id>",
+      "fallback": "Use the rendered/current list and normal Load More or page sequence. Static zero is not authoritative. Capture and follow current Jobtrain IDs or links before closing the source."
+    },
+    {
+      "id": "nottingham-college",
+      "name": "Nottingham College",
+      "family": "education",
+      "method": "college-direct",
+      "platform": "Nottingham College vacancies",
+      "fixed_route": "https://www.nottinghamcollege.ac.uk/about-us/working-for-us/current-vacancies",
+      "individual_route_pattern": null,
+      "fallback": "Follow and finish qualifying individual adverts. Do not confuse college employment with external apprenticeships advertised to learners."
+    },
+    {
+      "id": "west-nottinghamshire-college",
+      "name": "West Nottinghamshire College",
+      "family": "education",
+      "method": "itrent",
+      "platform": "iTrent",
+      "wvid": "5245470Prv",
+      "fixed_route": "https://vacancies.wnc.ac.uk/ce0999li_webrecruitment/wrd/run/etrec179gf.open?wvid=5245470Prv",
+      "individual_route_pattern": null,
+      "fallback": "Use rendered/current board or fresh exact-domain indexing when simple retrieval returns 403. Capture the actual current individual vacancy ID or link rather than guessing."
+    },
+    {
+      "id": "north-notts-college-rnn-group",
+      "name": "North Notts College / RNN Group",
+      "family": "education",
+      "method": "itrent",
+      "platform": "iTrent",
+      "wvid": "8759023jQy",
+      "fixed_route": "https://ce0833li.webitrent.com/ce0833li_webrecruitment/wrd/run/ETREC179GF.open?WVID=8759023jQy",
+      "individual_route_pattern": "https://ce0833li.webitrent.com/ce0833li_webrecruitment/wrd/run/ETREC179GF.open?WVID=8759023jQy&VACANCY_ID=<id>",
+      "fallback": "Include Nottinghamshire bases such as Worksop or North Notts and exclude Rotherham or other out-of-county bases."
+    },
+    {
+      "id": "govuk-teaching-vacancies",
+      "name": "GOV.UK Teaching Vacancies",
+      "family": "education",
+      "method": "govuk-teaching-vacancies",
+      "platform": "GOV.UK Teaching Vacancies",
+      "fixed_route": "https://teaching-vacancies.service.gov.uk/jobs?location=Nottinghamshire&page=1",
+      "individual_route_pattern": "/jobs/<slug>",
+      "fallback": "Increment only page= through visible results, check the actual school address and finish each qualifying individual advert."
+    },
+    {
+      "id": "nottingham-cvs",
+      "name": "Nottingham CVS",
+      "family": "vcse",
+      "method": "vcse-direct",
+      "platform": "Nottingham CVS",
+      "fixed_route": "https://www.nottinghamcvs.co.uk/news-and-events/jobs",
+      "individual_route_pattern": null,
+      "fallback": "Try the fixed page first; if unavailable, use a fresh indexed copy of that exact page and follow current vacancy or employer links. Include paid in-scope VCSE roles with a Nottinghamshire base while live."
+    }
+  ]
+}
