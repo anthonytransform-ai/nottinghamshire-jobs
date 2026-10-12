@@ -389,6 +389,39 @@ def next_page(source, html, page_url):
     return target
 
 
+def _oracle_salary(content):
+    """Read a salary field, never an open-ended match across the advert body.
+
+    Modern Oracle adverts put salary in a paragraph (sometimes alongside
+    icon-prefixed location/directorate facts). Preserve pay/allowance wording
+    within that field; paragraphs and labelled non-pay facts bound its extent.
+    A flat legacy fixture is usable only with an explicit following delimiter.
+    """
+    label = re.compile(r"\bsalary\s*:\s*", re.I)
+    delimiter = re.compile(
+        r"\s+(?:(?:Number of posts|Location|Contract(?: type)?|Closing Date|"
+        r"Working Hours|Worker Type|Base office)\s*:|Job Identification\b|"
+        r"About (?:the Role|You|Us)\b|[🏢📍🌳⏰])", re.I)
+    blocks = [n for n in content.nodes()
+              if n.tag in {"p", "li", "td", "dd", "h1", "h2", "h3", "h4"}]
+    # Avoid using an enclosing list/table block instead of its salary child.
+    for block in blocks:
+        if any(label.search(n.text()) for n in block.nodes()
+               if n.tag in {"p", "li", "td", "dd"}):
+            continue
+        match = label.search(block.text())
+        if match:
+            return delimiter.split(block.text()[match.end():], maxsplit=1)[0].strip()
+    if not blocks:
+        match = label.search(content.text())
+        if match:
+            value = content.text()[match.end():]
+            boundary = delimiter.search(value)
+            if boundary:
+                return value[:boundary.start()].strip()
+    return ""
+
+
 def parse_detail(source, row, html):
     root = check_document(html)
     facts = labelled(root)
@@ -477,11 +510,10 @@ def parse_detail(source, row, html):
         if not body:
             raise CollectionError("Oracle advert description missing")
         contract_match = re.search(r"Contract:\s*(.*?)(?=\s+(?:Number of posts|Location|Salary|Closing Date)\s*:|\s+Job Identification\b|$)", body, re.I)
-        salary_match = re.search(r"Salary:\s*(.*?)(?=\s+(?:Number of posts|Location|Contract|Closing Date)\s*:|\s+Job Identification\b|$)", body, re.I)
         closing_match = re.search(r"Closing Date:\s*(.*?)(?=\s+(?:Please note|Number of posts|Location|Salary|Contract)\s*:|\s+Job Identification\b|$)", body, re.I)
         facts.update({
             "location": _first_text(root, tag="div", cls="job-details__subtitle") or row.get("location", ""),
-            "salary": salary_match.group(1).strip() if salary_match else row.get("salary", ""),
+            "salary": _oracle_salary(content[0]) or row.get("salary", ""),
             "closing date": closing_match.group(1).strip() if closing_match else "",
             "contract": contract_match.group(1).strip() if contract_match else "",
         })

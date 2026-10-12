@@ -24,6 +24,13 @@ def validate_participant_url(source, url):
         raise ValueError("iTrent participant apply_url must not contain USESSION; use the stable registry board when detail is session-bound")
 
 
+def eligibility_review_flags(title):
+    """Bounded public-eligibility hint, not automatic broad 'internal' exclusion."""
+    if re.search(r"\binternal\s+(?:vacancy\s+)?only\b", title, re.I):
+        return ["explicit_internal_only_requires_eligibility_review"]
+    return []
+
+
 def summary_review_flags(summary):
     """Find known defect patterns; short factual summaries still need judgement."""
     if not summary.strip():

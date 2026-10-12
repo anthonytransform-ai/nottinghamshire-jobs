@@ -1,12 +1,20 @@
 import unittest
 
-from scripts.participant_job_policy import participant_destination, summary_review_flags, validate_participant_url
+from scripts.participant_job_policy import eligibility_review_flags, participant_destination, summary_review_flags, validate_participant_url
 from scripts.prepare_weekly_shadow import finish_source
 from scripts.validate_job_update import SUMMARY_COLUMNS
 from scripts.weekly_job_update import RawCandidate, load_registry
 
 
 class ParticipantPolicyTests(unittest.TestCase):
+    def test_explicit_internal_only_is_reviewed_without_excluding_internal_rotation(self):
+        for title in ("Market Assistant (internal vacancy only)",
+                      "Waste Loader (Internal Vacancy Only)",
+                      "Systems and Customer Relations Manager (Internal Vacancy Only)"):
+            self.assertEqual(["explicit_internal_only_requires_eligibility_review"], eligibility_review_flags(title))
+        self.assertEqual([], eligibility_review_flags("Speech & Language Therapist internal rotation"))
+        self.assertEqual([], eligibility_review_flags("Internal Auditor"))
+
     def test_all_six_itrent_sources_use_their_own_board_for_session_bound_detail(self):
         for source in load_registry().sources:
             if source.method != "itrent":

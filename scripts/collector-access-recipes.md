@@ -257,6 +257,12 @@ the current live source and apply the completion/failure contracts below.
   `About You`, `About Us`, benefits/EDI and contact/application text. Opening
   contract/hours/location blocks and generic council recruitment copy belong
   outside `job_summary`. Preserve full cached HTML for evidence.
+- **Salary evidence:** read the bounded salary paragraph/field in retained
+  description HTML, excluding subsequent non-pay labelled facts or
+  icon-prefixed directorate/location blocks. Do not match from `Salary:` to
+  the end of the advert when an expected delimiter is missing. Keep genuine
+  pay progression, overtime, allowances and supplements within that field;
+  arbitrary character truncation is not salary extraction.
 - **OK/EMPTY:** completed count-bounded rendered enumeration plus readable
   details for every captured job; EMPTY requires a rendered zero.
 - **PARTIAL/ERROR:** useful jobs plus a scroll/detail failure -> PARTIAL; no
