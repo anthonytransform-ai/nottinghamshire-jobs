@@ -5,6 +5,10 @@ recipes reference registry IDs. `source-registry.json` remains the sole owner of
 source routes, families, methods and allowed fallbacks. Eligibility, geography,
 classification, deduplication and participant summaries remain Playbook-owned.
 
+Counts and control states below are dated observations from the 2026-10-12 proof,
+not expected counts for future runs. Every future run must dynamically enumerate
+the current live source and apply the completion/failure contracts below.
+
 ## university-of-nottingham
 
 - **Registry ID:** `university-of-nottingham`.
@@ -17,9 +21,9 @@ classification, deduplication and participant summaries remain Playbook-owned.
   against the response URL. The `ref` is the public reference; do not invent IDs.
 - **Advert:** ordinary HTTP GET of the retained individual href.
 - **Completion:** process the full response, and follow any exposed normal Next
-  control. A repeated/ambiguous Next route is a failure. The observed route is one
-  full page; there was no Next control. Zero requires a recognised list surface
-  and explicit no-vacancies evidence, not merely missing anchors.
+  control. A repeated/ambiguous Next route is a failure. In the 2026-10-12 proof,
+  the route was one full page with no Next control. Zero requires a recognised
+  list surface and explicit no-vacancies evidence, not merely missing anchors.
 - **Details:** `h1.pagetitle`, `.advertheader` labelled paragraphs (Location,
   Salary, Closing Date, Reference), and the `#main` body. Preserve raw wording;
   contract/hours embedded in prose remain available for agent interpretation.
@@ -30,17 +34,19 @@ classification, deduplication and participant summaries remain Playbook-owned.
   candidates -> ERROR. Neither can become EMPTY.
 - **Fallback:** only the registered instructions; exact all-vacancies start and
   observed individual hrefs. No category reconstruction or broad discovery.
-- **Evidence:** local `diagnosis/university-of-nottingham.html`,
+- **Completed proof — 2026-10-12:** local `diagnosis/university-of-nottingham.html`,
   `diagnosis/uon-detail.html`, and `pilot-2026-10-12` cached pages/checkpoint/raw
-  evidence. Initial live collector captured 69 identities and 69 readable details
-  with OK. Independent same-run normal-route comparison remains to be recorded.
+  evidence. The collector completed with OK: 69 live identities and 69 readable
+  details. The separate normal-route identity comparison matched all 69 identities
+  with no missing or extra items. Future vacancy counts are dynamic.
 
 ## nottingham-trent-university
 
 - **Registry ID:** `nottingham-trent-university`.
 - **List:** render the registered jobs surface in ordinary Chromium/Edge. Wait
   for `#totalMatchRecords` plus actual `.job-card` advert links (or verified zero).
-  The initial rendered response exposes 12 cards out of 35 matching jobs.
+  In the 2026-10-12 proof, the initial rendered response exposed 12 cards out of
+  35 matching jobs.
 - **Identity/link:** retain the actual card `a[href*="JobDetail"]` href and its
   `JobId` query value. Keep the separately labelled `Job reference` as the public
   reference; platform ID and public reference are different.
@@ -68,19 +74,23 @@ classification, deduplication and participant summaries remain Playbook-owned.
   duplicate count nodes and retained all 24 detail pages for reuse.
 - **Fallback:** the registry permits rendered current jobs and its normal Load
   More/page path. No Jobtrain internal API/population investigation is needed.
-- **Evidence:** local `diagnosis/ntu-rendered.html`,
-  `diagnosis/ntu-detail.html`, and two pilot list snapshots plus 24 details.
-  The bounded completion check confirmed 12 -> 24 -> 35 identities, counts
+- **Completed proof — 2026-10-12:** local `diagnosis/ntu-rendered.html`,
+  `diagnosis/ntu-detail.html`, and the completed pilot's three list snapshots and
+  35 readable details. The collector completed with OK. The normal Load More
+  sequence was 12 -> 24 -> 35 identities, with counts
   `[35]` -> `[35,35]` -> `[35,35,35]`, and hidden Load More on the final step.
-  Test the adapter against this settled recipe without repeating portal discovery.
+  The separate normal-route identity comparison matched all 35 identities with
+  no missing or extra items. Future vacancy counts are dynamic; follow this
+  settled recipe without repeating portal discovery.
   Already completed detail work must be reused.
 
 ## nottingham-university-hospitals
 
 - **Registry ID:** `nottingham-university-hospitals`.
 - **List:** render the registered employer collection in ordinary headed Edge.
-  `.hj-job-list` contains an ordered list of `.hj-job` entries. Initial diagnosis
-  and in-app browser inspection exposed 45 entries; no normal Next control.
+  `.hj-job-list` contains an ordered list of `.hj-job` entries. During the
+  2026-10-12 proof, diagnosis and in-app browser inspection exposed 45 entries
+  with no normal Next control.
 - **Identity/link:** each card has its actual `/job/...-v<id>` href. Preserve that
   observed href, the `v<id>` platform identity, and `.hj-jobtitle`,
   `.hj-employername`, `.hj-locationtown`, `.hj-salary` raw facts.
@@ -102,12 +112,15 @@ classification, deduplication and participant summaries remain Playbook-owned.
 - **Fallback:** the registered normal employer collection/individual adverts.
   Ordinary browser rendering is the access mechanism; no challenge solving,
   stealth, proxies or anti-bot bypass. If it becomes blocked, record the limitation.
-- **Evidence/assumption:** direct HTTP and first headless Edge diagnostic returned
-  a security check. Ordinary headed Edge then returned HTTP 200 for the exact
+- **Completed proof — 2026-10-12:** direct HTTP and first headless Edge diagnostic
+  returned a security check. Ordinary headed Edge then returned HTTP 200 for the exact
   employer list and an individual advert; the in-app browser independently
   displayed the list. `diagnosis/nuh-rendered.html` and `diagnosis/nuh-detail.html`
-  preserve these successful pages. Reliability over the full normal detail path
-  still needs the bounded collector run; failure must remain visible.
+  preserve these successful pages. The bounded collector run completed with OK:
+  45 live identities and 45 readable details across the full normal path. The
+  separate employer-list identity comparison matched all 45 identities with no
+  missing or extra items. Future vacancy counts are dynamic; any future failure
+  must remain visible through PARTIAL/ERROR.
 
 ## Working-state and investigation boundary
 
@@ -118,7 +131,8 @@ resume a same-run checkpoint rather than recrawling completed work. A collector
 lock keeps shared source/candidate writes sequential. A terminated process may
 leave a lock: check its recorded PID before deliberately removing a stale lock.
 
-Once these targeted mechanics are verified, future runs follow them. Changed
+These targeted mechanics were verified in the 2026-10-12 proof; future runs follow
+the recipes. Changed
 markup/access becomes a bounded PARTIAL/ERROR diagnosis, not permission for
 repeated speculative exploration. The Skill consumes the raw evidence without
 reopening completed list pages. Row finishing and quality audit follow the
