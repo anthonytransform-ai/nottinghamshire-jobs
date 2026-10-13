@@ -247,3 +247,79 @@
 .state-message{margin-top:16px}
 .state-message__title{margin:0;font-size:20px;font-weight:700}
 .state-message p + p{margin:7px auto 0;max-width:520px;color:var(--muted)}
+
+/* ANT-263: approved support composition; shared Jobs shell stays unchanged. */
+.support-page{line-height:1.55}
+.support-page .hero{padding:42px 0 38px}
+.support-page h1{max-width:780px}
+.support-page .lede{max-width:740px}
+.back-link{display:inline-flex;margin-top:22px;font-size:14px;font-weight:750;text-underline-offset:3px}
+
+.support-page main{padding:34px 0 58px}
+.intro{max-width:800px}
+.intro p{margin:0;color:var(--muted);font-size:17px}
+.intro p + p{margin-top:11px}
+
+.pathways{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:28px}
+.pathway{
+  padding:24px;border:1px solid var(--border);border-radius:21px;background:var(--surface)
+}
+.pathway-kicker{margin:0;color:var(--accent-deep);font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.pathway h2{margin:5px 0 0;font-size:25px;line-height:1.18;letter-spacing:-.02em}
+.pathway p{margin:12px 0 0;color:var(--muted)}
+.pathway ul{margin:14px 0 0;padding-left:20px;color:var(--muted)}
+.pathway li+li{margin-top:6px}
+.pathway-outcome{
+  margin-top:18px!important;padding-top:15px;border-top:1px solid var(--border-subtle);
+  color:var(--text)!important;font-weight:650
+}
+
+.extra{
+  display:grid;grid-template-columns:auto 1fr;gap:16px;margin-top:20px;padding:21px 22px;
+  border:1px solid rgb(247 149 73 / 38%);border-radius:19px;background:var(--surface-subtle)
+}
+.extra-icon{
+  width:42px;height:42px;display:grid;place-items:center;border-radius:13px;
+  background:var(--surface-warm);color:var(--accent-deep);font-weight:850;font-size:18px
+}
+.extra h2{margin:0;font-size:21px}
+.extra p{margin:7px 0 0;color:var(--muted)}
+
+.cta-panel{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:26px;
+  margin-top:28px;padding:26px 28px;border-radius:21px;background:var(--text);color:#fff
+}
+.cta-panel h2{margin:0;font-size:25px;line-height:1.18}
+.cta-panel p{max-width:720px;margin:8px 0 0;color:#dddfe3}
+.cta-action{display:grid;gap:7px;justify-items:stretch;min-width:190px}
+.cta-button{
+  min-height:50px;display:inline-flex;align-items:center;justify-content:center;padding:11px 18px;
+  border:1px solid var(--accent);border-radius:13px;background:var(--accent);color:var(--accent-ink);
+  font-weight:800;text-decoration:none;text-align:center;cursor:default
+}
+.cta-note{color:#bfc3c9;font-size:11px;line-height:1.35;text-align:center}
+
+.privacy-note{
+  margin-top:16px;padding:14px 16px;border-left:3px solid var(--accent);
+  color:var(--muted);font-size:13px
+}
+.privacy-note strong{color:var(--text)}
+
+
+@media (max-width:760px){
+  .support-page .hero{padding:31px 0 30px}
+  .support-page .lede{margin-top:14px}
+  .support-page main{padding:26px 0 44px}
+  .intro p{font-size:16px}
+  .pathways{grid-template-columns:1fr;gap:14px;margin-top:22px}
+  .pathway{padding:20px 18px;border-radius:18px}
+  .pathway h2{font-size:22px}
+  .extra{grid-template-columns:1fr;padding:18px}
+  .extra-icon{width:38px;height:38px}
+  .cta-panel{grid-template-columns:1fr;padding:22px 19px}
+  .cta-action{min-width:0;justify-items:stretch}
+  .cta-note{text-align:left}
+}
+@media (max-width:470px){
+  .support-page .hero{padding-top:25px}
+}
