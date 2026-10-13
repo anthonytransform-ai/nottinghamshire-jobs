@@ -174,7 +174,8 @@
   .footer-inner{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;padding:34px 0 26px}
   .footer-title{margin:0;font-size:20px}
   .footer-copy,.footer-links{margin-top:10px;color:var(--muted);font-size:13px}
-  .footer-links{display:grid;gap:7px}
+  .footer-contact{display:grid;gap:7px;font-style:normal}
+  .footer-links{display:grid;gap:7px;align-content:start}
   .footer-links a{width:max-content}
   .footer-legal{grid-column:1/-1;padding-top:18px;border-top:1px solid var(--border);color:var(--soft);font-size:12px}
   .footer-legal p{margin:0 0 7px;max-width:920px}
