@@ -163,9 +163,9 @@ py -X utf8 -m scripts.participant_job_policy path/to/candidate.csv
 ```
 
 The command reads the CSV and prints a JSON report with field names, affected
-CSV record numbers and review reasons. Record 2 is the first vacancy after the
-header; quoted multiline fields still belong to one record. It reports existing
-summary hints plus HTML/script/template residue, salary fields containing other
+CSV record numbers and review reasons. The header is record 1, and blank records
+retain their positions; quoted multiline fields still belong to one record.
+It reports existing summary hints plus HTML/script/template residue, salary fields containing other
 advert labels, descriptions ending in expansion controls or ellipses, and
 identical summaries of at least 30 words across distinct roles. Case and
 whitespace differences are ignored when comparing summaries. Shared application

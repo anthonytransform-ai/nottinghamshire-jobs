@@ -7,6 +7,8 @@ Link decisions consume explicit access evidence, not guessed routes.
 from __future__ import annotations
 
 import argparse
+import csv
+import io
 import json
 from pathlib import Path
 import re
@@ -90,15 +92,18 @@ def summary_review_flags(summary):
     return list(dict.fromkeys(flags))
 
 
-def quality_review_findings(rows):
+def quality_review_findings(rows, *, record_numbers=None):
     """Review finished rows without changing, excluding or validating them.
 
-    Row numbers refer to CSV records, starting at 2 after the header (a quoted
-    multiline record is still one record). Employer groups of at least three
+    The CSV caller supplies original record numbers, including blank records;
+    a quoted multiline record is still one record. In-memory callers default
+    to consecutive records after the header. Employer groups of at least three
     rows give an all-blank-field hint, not a claim about source completeness.
     A missing job_summary key, as in a legacy feed, is not an extraction defect.
     """
     rows = list(rows)
+    if record_numbers is None:
+        record_numbers = range(2, len(rows) + 2)
     findings = []
     employers = {}
     summaries = {}
@@ -117,7 +122,7 @@ def quality_review_findings(rows):
         findings.append(dict(code=code, field=field, row_numbers=numbers,
             reason=reasons.get(code, code.replace("_", " ").capitalize()), **context))
 
-    for number, row in enumerate(rows, start=2):
+    for number, row in zip(record_numbers, rows, strict=True):
         for field, text in row.items():
             if field == "job_summary":
                 flags = summary_review_flags(text)
@@ -156,11 +161,18 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="Read a candidate CSV and report advisory quality findings; never modifies or rejects vacancy rows.")
     parser.add_argument("candidate", type=Path)
     args = parser.parse_args(argv)
-    rows, columns = parse_csv_bytes(args.candidate.read_bytes())
+    candidate_bytes = args.candidate.read_bytes()
+    rows, columns = parse_csv_bytes(candidate_bytes)
+    # The shared parser deliberately skips blank records. Read their positions
+    # from the same bytes without changing that parser or counting physical lines.
+    reader = csv.reader(io.StringIO(candidate_bytes.decode("utf-8-sig"), newline=""), strict=True)
+    next(reader)  # Header already checked by the shared parser.
+    record_numbers = [number for number, record in enumerate(reader, start=2)
+                      if any(value.strip() for value in record)]
     if "job_summary" not in columns:
         # The shared parser supplies a blank compatibility value for legacy rows.
         rows = [{key: value for key, value in row.items() if key != "job_summary"} for row in rows]
-    findings = quality_review_findings(rows)
+    findings = quality_review_findings(rows, record_numbers=record_numbers)
     print(json.dumps(dict(advisory_only=True, row_count=len(rows),
         finding_count=len(findings), findings=findings), ensure_ascii=False, indent=2))
     return 0

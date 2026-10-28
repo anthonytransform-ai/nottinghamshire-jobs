@@ -213,3 +213,56 @@ class AdvisoryQualityTests(unittest.TestCase):
             with redirect_stdout(output):
                 self.assertEqual(0, main([str(path)]))
         self.assertEqual([], json.loads(output.getvalue())["findings"])
+
+    def audit_candidate(self, candidate):
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as root:
+            path = Path(root) / "candidate.csv"
+            path.write_bytes(candidate)
+            output = io.StringIO()
+            with redirect_stdout(output):
+                self.assertEqual(0, main([str(path)]))
+            self.assertEqual(candidate, path.read_bytes())
+        return json.loads(output.getvalue())
+
+    def test_cli_keeps_original_record_numbers_after_blank_records_in_both_schemas(self):
+        for columns in (LEGACY_COLUMNS, SUMMARY_COLUMNS):
+            with self.subTest(columns=len(columns)):
+                stream = io.StringIO(newline="")
+                writer = csv.writer(stream)
+                writer.writerow(columns)
+                writer.writerow([])
+                for index in range(2):
+                    row = self.row(job_title=f"Role {index}", job_reference=f"REF-{index}",
+                        salary="£25,000\n\nLocation: Nottingham")
+                    writer.writerow([row[field] for field in columns])
+                    # Blank records are ignored even if their field count differs.
+                    writer.writerow([" ", ""])
+                candidate = stream.getvalue().encode("utf-8-sig")
+                self.assertTrue(validate_csv_bytes(candidate)["ok"])
+                report = self.audit_candidate(candidate)
+                self.assertEqual(2, report["row_count"])
+                findings = [f for f in report["findings"] if f["code"] == "salary_contains_other_fields"]
+                self.assertEqual([[3], [5]], [f["row_numbers"] for f in findings])
+
+    def test_cli_group_findings_keep_blank_and_multiline_record_positions(self):
+        for columns in (LEGACY_COLUMNS, SUMMARY_COLUMNS):
+            with self.subTest(columns=len(columns)):
+                stream = io.StringIO(newline="")
+                writer = csv.writer(stream)
+                writer.writerow(columns)
+                for index in range(3):
+                    writer.writerow([""] * len(columns))
+                    row = self.row(job_title=f"Role {index}", job_reference=f"REF-{index}",
+                        salary="", location="Nottingham\n\nCity",
+                        job_summary=self.SUMMARY.replace(". ", ".\n"))
+                    writer.writerow([row[field] for field in columns])
+                candidate = stream.getvalue().encode("utf-8")
+                self.assertTrue(validate_csv_bytes(candidate)["ok"])
+                report = self.audit_candidate(candidate)
+                self.assertEqual(3, report["row_count"])
+                blank_salary = [f for f in report["findings"]
+                    if f["code"] == "employer_field_entirely_blank" and f["field"] == "salary"]
+                self.assertEqual([[3, 5, 7]], [f["row_numbers"] for f in blank_salary])
+                repeated = [f for f in report["findings"] if f["code"] == "repeated_summary"]
+                self.assertEqual([[3, 5, 7]] if columns == SUMMARY_COLUMNS else [],
+                    [f["row_numbers"] for f in repeated])
