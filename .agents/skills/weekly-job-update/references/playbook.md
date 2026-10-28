@@ -739,6 +739,21 @@ Then review only the exceptions:
    that summaries describe work. Repeated branding, metadata-first or
    requirements-only summaries require repair from retained role evidence.
 
+Run the advisory quality helper against the finished candidate:
+
+```powershell
+py -X utf8 -m scripts.participant_job_policy path/to/candidate.csv
+```
+
+Review its field names, CSV record numbers and reasons against retained source
+evidence. It flags extraction residue, mixed salary fields, possible incomplete
+descriptions, repeated substantial summaries and entirely blank salary/summary
+fields across employer groups. These are review leads, not confirmed defects or
+new publication gates. Genuine missing facts and shared application destinations
+remain allowed. The helper never changes rows; findings return a successful exit
+status and do not replace the separate CSV safety validator. No findings does
+not establish semantic correctness.
+
 The deterministic participant URL check in
 `scripts/participant_job_policy.py` supports this editorial/link-policy layer;
 it does not widen the repository's narrow CSV safety validator.

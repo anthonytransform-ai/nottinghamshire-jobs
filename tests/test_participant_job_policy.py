@@ -1,8 +1,18 @@
+from contextlib import redirect_stdout
+from copy import deepcopy
+import csv
+import io
+import json
+from pathlib import Path
+import tempfile
 import unittest
 
-from scripts.participant_job_policy import eligibility_review_flags, participant_destination, summary_review_flags, validate_participant_url
+from scripts.participant_job_policy import (
+    eligibility_review_flags, main, participant_destination, quality_review_findings,
+    salary_review_flags, summary_review_flags, text_review_flags, validate_participant_url,
+)
 from scripts.prepare_weekly_shadow import finish_source
-from scripts.validate_job_update import SUMMARY_COLUMNS
+from scripts.validate_job_update import LEGACY_COLUMNS, SUMMARY_COLUMNS, validate_csv_bytes
 from scripts.weekly_job_update import RawCandidate, load_registry
 
 
@@ -59,3 +69,147 @@ class ParticipantPolicyTests(unittest.TestCase):
             finish_source(source.source_id, [candidate], [decision])
         row["apply_url"] = source.fixed_route
         self.assertEqual([row], finish_source(source.source_id, [candidate], [decision]))
+
+
+class AdvisoryQualityTests(unittest.TestCase):
+    SUMMARY = (
+        "Coordinate appointments and maintain service records for the team. "
+        "Respond to enquiries, prepare meeting papers and update case information. "
+        "Work with colleagues to organise daily administrative tasks and keep accurate records of agreed actions."
+    )
+
+    def row(self, **values):
+        row = {field: "" for field in SUMMARY_COLUMNS}
+        row.update(organization="Example Council", job_title="Administrator",
+            job_reference="REF-1", salary="£25,000 per annum",
+            apply_url="https://example.org/vacancies", job_summary=self.SUMMARY)
+        row.update(values)
+        return row
+
+    def csv_bytes(self, rows, columns=SUMMARY_COLUMNS):
+        stream = io.StringIO(newline="")
+        writer = csv.DictWriter(stream, fieldnames=columns, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(rows)
+        return stream.getvalue().encode("utf-8")
+
+    def test_residue_checks_find_markup_script_and_placeholders(self):
+        for text, code in (
+            ("<p>Maintain records.</p>", "markup_residue"),
+            ("<script>alert('x')</script>", "script_residue"),
+            ("function loadAdvert() { return 1; }", "script_residue"),
+            ("const salary = 25000;", "script_residue"),
+            ("document.querySelector('#advert')", "script_residue"),
+            ("Salary: {{ salary }}", "unresolved_placeholder"),
+            ("Pay: ${amount}", "unresolved_placeholder"),
+            ("[object Object]", "unresolved_placeholder"),
+            ("undefined", "unresolved_placeholder"),
+        ):
+            with self.subTest(text=text):
+                self.assertIn(code, text_review_flags(text))
+
+    def test_residue_checks_leave_ordinary_vacancy_wording_alone(self):
+        for text in (
+            "Support the service's administrative function and maintain records.",
+            "Teach HTML and JavaScript, including functions and variables.",
+            "Salary < £30,000; working hours > 20 per week.",
+            "Keep paper records in {numbered} folders.",
+            "Explain undefined terms to service users.",
+            "£25,000–£30,000 plus a location allowance, pro rata for 22 hours.",
+        ):
+            with self.subTest(text=text):
+                self.assertEqual([], text_review_flags(text))
+
+    def test_salary_checks_flag_other_field_labels_without_rejecting_pay_details(self):
+        for text in (
+            "£25,000. Directorate: Finance. Location: Nottingham.",
+            "£30,000\nClosing date: 30 October",
+            "£25,000. Contract type: Permanent.",
+        ):
+            self.assertEqual(["salary_contains_other_fields"], salary_review_flags(text))
+        for text in ("", "Competitive", "£25,000 plus location allowance",
+                     "£12.50 per hour, 37 hours per week; overtime paid separately"):
+            self.assertEqual([], salary_review_flags(text))
+
+    def test_summary_checks_flag_expansion_controls_and_trailing_ellipsis(self):
+        for ending in ("Read more", "SHOW MORE.", "See more…", "View more..."):
+            self.assertIn("unexpanded_description", summary_review_flags(self.SUMMARY + " " + ending))
+        for ending in ("...", "…"):
+            self.assertIn("possible_truncation_requires_review", summary_review_flags(self.SUMMARY + ending))
+        self.assertEqual([], summary_review_flags(self.SUMMARY))
+        self.assertNotIn("unexpanded_description", summary_review_flags(self.SUMMARY + " Help visitors read more books."))
+
+    def test_findings_identify_fields_and_csv_records_without_changing_rows(self):
+        rows = [self.row(salary="£25,000. Location: Nottingham.",
+                         job_summary="<p>Maintain records.</p> Read more")]
+        original = deepcopy(rows)
+        findings = quality_review_findings(rows)
+        self.assertEqual(original, rows)
+        self.assertTrue(all(f["row_numbers"] == [2] and f["reason"] for f in findings))
+        self.assertIn(("salary_contains_other_fields", "salary"),
+            {(f["code"], f["field"]) for f in findings})
+        self.assertIn(("markup_residue", "job_summary"),
+            {(f["code"], f["field"]) for f in findings})
+
+    def test_same_substantial_summary_is_flagged_across_distinct_roles(self):
+        rows = [self.row(), self.row(job_title="Receptionist", job_reference="REF-2",
+            job_summary="  " + self.SUMMARY.upper().replace(" ", "\n") + "  ")]
+        repeated = [f for f in quality_review_findings(rows) if f["code"] == "repeated_summary"]
+        self.assertEqual(1, len(repeated))
+        self.assertEqual([2, 3], repeated[0]["row_numbers"])
+        # A shared board URL does not define role identity or itself cause a flag.
+        rows[1]["job_summary"] = self.SUMMARY.replace("appointments", "customer visits")
+        self.assertEqual([], quality_review_findings(rows))
+
+    def test_repetition_check_ignores_same_role_copies_and_short_summaries(self):
+        self.assertNotIn("repeated_summary", {f["code"] for f in quality_review_findings([self.row(), self.row()])})
+        rows = [self.row(job_summary="Maintain records."),
+                self.row(job_title="Receptionist", job_summary="Maintain records.")]
+        self.assertNotIn("repeated_summary", {f["code"] for f in quality_review_findings(rows)})
+
+    def test_all_blank_hints_use_employer_groups_and_do_not_infer_missing_facts(self):
+        rows = [self.row(job_title=f"Role {n}", salary="", job_summary="") for n in range(3)]
+        rows[1]["organization"] = " example   COUNCIL "
+        rows.append(self.row(organization="Other Employer", salary="", job_summary=""))
+        findings = [f for f in quality_review_findings(rows) if f["code"] == "employer_field_entirely_blank"]
+        self.assertEqual({"salary", "job_summary"}, {f["field"] for f in findings})
+        self.assertTrue(all(f["row_numbers"] == [2, 3, 4] for f in findings))
+        self.assertTrue(all(f["organization"] == "Example Council" for f in findings))
+        rows[0]["salary"] = "Competitive"
+        self.assertNotIn("salary", {f["field"] for f in quality_review_findings(rows)
+            if f["code"] == "employer_field_entirely_blank"})
+
+    def test_missing_optional_columns_and_empty_dataset_do_not_create_group_flags(self):
+        rows = [{"organization": "Example Council", "job_title": f"Role {n}"} for n in range(3)]
+        self.assertEqual([], quality_review_findings(rows))
+        self.assertEqual([], quality_review_findings([]))
+        rows = [self.row(organization="", salary="", job_summary="") for _ in range(3)]
+        self.assertNotIn("employer_field_entirely_blank", {f["code"] for f in quality_review_findings(rows)})
+
+    def test_cli_reports_advisories_with_success_and_preserves_exact_csv_bytes(self):
+        candidate = self.csv_bytes([self.row(salary="£25,000\nLocation: Nottingham",
+            job_summary="<p>Maintain records.</p> Read more")])
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as root:
+            path = Path(root) / "candidate.csv"
+            path.write_bytes(candidate)
+            output = io.StringIO()
+            with redirect_stdout(output):
+                self.assertEqual(0, main([str(path)]))
+            self.assertEqual(candidate, path.read_bytes())
+        report = json.loads(output.getvalue())
+        self.assertTrue(report["advisory_only"])
+        self.assertEqual(1, report["row_count"])
+        self.assertGreater(report["finding_count"], 0)
+        self.assertTrue(all(f["row_numbers"] == [2] for f in report["findings"]))
+        # Editorial flags do not become CSV safety failures.
+        self.assertTrue(validate_csv_bytes(candidate)["ok"])
+
+    def test_cli_does_not_treat_legacy_summary_absence_as_an_extraction_defect(self):
+        candidate = self.csv_bytes([self.row(job_title=f"Role {n}") for n in range(3)], LEGACY_COLUMNS)
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as root:
+            path = Path(root) / "legacy.csv"
+            path.write_bytes(candidate)
+            output = io.StringIO()
+            with redirect_stdout(output):
+                self.assertEqual(0, main([str(path)]))
+        self.assertEqual([], json.loads(output.getvalue())["findings"])

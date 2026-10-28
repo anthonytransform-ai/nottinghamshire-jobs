@@ -154,6 +154,34 @@ It deliberately does **not** reject rows because of blank optional fields, closi
 
 The validator reads the complete `jobs.csv` directly. It does not reconstruct data from chunks and it does not publish or transform the file.
 
+### Advisory quality review
+
+During the participant-facing audit, review a finished candidate with:
+
+```powershell
+py -X utf8 -m scripts.participant_job_policy path/to/candidate.csv
+```
+
+The command reads the CSV and prints a JSON report with field names, affected
+CSV record numbers and review reasons. Record 2 is the first vacancy after the
+header; quoted multiline fields still belong to one record. It reports existing
+summary hints plus HTML/script/template residue, salary fields containing other
+advert labels, descriptions ending in expansion controls or ellipses, and
+identical summaries of at least 30 words across distinct roles. Case and
+whitespace differences are ignored when comparing summaries. Shared application
+URLs are not used as vacancy identity.
+
+For an employer with at least three rows, it also flags an entirely blank salary
+or summary field. These are employer groups, not proof of source coverage or a
+requirement that the source supplies those facts. Legacy 15-column feeds do not
+receive missing-summary findings.
+
+All findings are advisory: compare flagged values with retained source evidence
+and record genuine limitations. The command returns success even when it finds
+issues, never modifies the candidate, and never removes vacancies. It does not
+fetch adverts or replace the Playbook's semantic review or the separate CSV
+safety validator. No findings does not prove that the rows are correct.
+
 ## Pull request rule
 
 A routine Job Update should use a branch such as `job-update/2026-09-27`. The final weekly PR should contain exactly one changed file: `jobs.csv`.
